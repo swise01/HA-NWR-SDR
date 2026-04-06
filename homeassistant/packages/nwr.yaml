@@ -1,7 +1,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
 #  nwr.yaml — NOAA Weather Radio Package for Home Assistant
-#  Repository: https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
-#  Version: 2.0.0
+#  Repository: https://github.com/swise01/HA-NWR-SDR
 #
 #  INSTALL:
 #    1. Copy this file to config/packages/nwr.yaml
@@ -248,7 +247,7 @@ rest:
   - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_1,YOUR_ZONE_2"  # ← EDIT
     scan_interval: 60
     headers:
-      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/swise01/HA-NWR-SDR)"
       Accept: "application/geo+json"
     sensor:
       - name: "NWS Active Alert Count"
@@ -332,7 +331,7 @@ rest:
   - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_1"  # ← EDIT
     scan_interval: 60
     headers:
-      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/swise01/HA-NWR-SDR)"
       Accept: "application/geo+json"
     sensor:
       - name: "NWS Zone 1 Alert Count"
@@ -343,7 +342,7 @@ rest:
   - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_2"  # ← EDIT
     scan_interval: 60
     headers:
-      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/swise01/HA-NWR-SDR)"
       Accept: "application/geo+json"
     sensor:
       - name: "NWS Zone 2 Alert Count"

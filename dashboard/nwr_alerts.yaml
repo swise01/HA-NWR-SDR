@@ -1,7 +1,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
-#  nwr_alerts_v2.yaml — NWR Lovelace Dashboard
-#  Repository: https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
-#  Version: 2.0.0
+#  nwr_alerts.yaml — NWR Lovelace Dashboard
+#  Repository: https://github.com/swise01/HA-NWR-SDR
 #
 #  REQUIRES: Mushroom (HACS) + card-mod (HACS)
 #

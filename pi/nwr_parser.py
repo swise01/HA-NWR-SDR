@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 nwr_parser.py — NOAA Weather Radio SAME Decoder + MQTT Publisher
-Repository: https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
-Version: 2.0.0
+Repository: https://github.com/swise01/HA-NWR-SDR
 
 Listens on an RTL-SDR dongle, decodes SAME/EAS headers via multimon-ng,
 and publishes structured JSON to MQTT for Home Assistant.
@@ -308,5 +307,5 @@ if __name__ == "__main__":
     parser = NWRParser()
     signal.signal(signal.SIGTERM, parser.stop)
     signal.signal(signal.SIGINT,  parser.stop)
-    logging.info("NWR Parser v2.0.0 | FIPS filter: %s", FIPS_FILTER or "ALL COUNTIES")
+    logging.info("NWR Parser | FIPS filter: %s", FIPS_FILTER or "ALL COUNTIES")
     parser.start()

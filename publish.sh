@@ -63,7 +63,7 @@ find . -type f \( -name "*.md" -o -name "*.yaml" -o -name "*.py" -o -name "*.ser
 done
 
 git add -A
-git commit -m "Initial release v2.0.0 — HA-NWR-SDR community integration"
+git commit -m "Initial release — HA-NWR-SDR community integration"
 
 echo "→ Pushing to GitHub..."
 git remote remove origin 2>/dev/null || true
