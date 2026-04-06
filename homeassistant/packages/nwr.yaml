@@ -1,0 +1,764 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  nwr.yaml — NOAA Weather Radio Package for Home Assistant
+#  Repository: https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
+#  Version: 2.0.0
+#
+#  INSTALL:
+#    1. Copy this file to config/packages/nwr.yaml
+#    2. Add to configuration.yaml:
+#         homeassistant:
+#           packages:
+#             nwr: !include packages/nwr.yaml
+#    3. Fill in all "← EDIT" lines below
+#    4. Restart Home Assistant
+#
+#  Works in two modes:
+#    • SDR + NWS API  — Pi parser publishes SAME data over MQTT + NWS REST backup
+#    • NWS API Only   — No Pi/SDR needed, NWS REST sensors do everything
+#
+#  Full SAME event code reference: https://www.weather.gov/nwr/eventcodes
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ──────────────────────────────────────────────────────────────────
+#  INPUT BOOLEANS
+# ──────────────────────────────────────────────────────────────────
+input_boolean:
+
+  # System state (managed by automations — do not toggle manually)
+  nwr_alert_active:
+    name: "NWR Alert Active"
+    icon: mdi:alert
+
+  # Integration mode
+  nwr_sdr_mode_enabled:
+    name: "NWR SDR Mode Enabled"
+    icon: mdi:radio-tower
+
+  # Notification tiers
+  nwr_notify_tier2:
+    name: "NWR Notify — Tier 2 Warnings"
+    icon: mdi:alert-circle
+  nwr_notify_tier3:
+    name: "NWR Notify — Tier 3 Watches"
+    icon: mdi:alert
+  nwr_notify_tier4:
+    name: "NWR Notify — Tier 4 Advisories"
+    icon: mdi:information
+  nwr_tier4_critical:
+    name: "NWR Tier 4 Critical Push"
+    icon: mdi:bell-alert
+  nwr_notify_tier5:
+    name: "NWR Notify — Tier 5 Tests"
+    icon: mdi:flask
+  nwr_weekly_test_mode:
+    name: "NWR Weekly Test Triggers Full Chain"
+    icon: mdi:calendar-check
+
+  # TTS
+  nwr_tts_enable:
+    name: "NWR TTS Enabled"
+    icon: mdi:text-to-speech
+  nwr_tts_include_description:
+    name: "NWR TTS Include Description"
+    icon: mdi:text-long
+  nwr_tts_include_instruction:
+    name: "NWR TTS Include Instructions"
+    icon: mdi:format-list-checks
+
+  # Audio streaming
+  nwr_audio_on_alert:
+    name: "NWR Stream Audio on Alert"
+    icon: mdi:volume-high
+  nwr_audio_tier1_only:
+    name: "NWR Audio — Tier 1 Only"
+    icon: mdi:volume-medium
+
+  # Safety relay output (optional — see automation nwr_safety_relay_on)
+  nwr_safety_relay_enable:
+    name: "NWR Safety Relay — Strobe / Siren"
+    icon: mdi:flash-alert
+
+  # On-demand stream
+  nwr_on_demand_stream:
+    name: "NWR On-Demand Stream"
+    icon: mdi:play-circle
+
+
+# ──────────────────────────────────────────────────────────────────
+#  INPUT SELECTS
+# ──────────────────────────────────────────────────────────────────
+input_select:
+
+  # WX Channel — all 7 standard NWR frequencies
+  # When changed, this publishes to nwr/set_channel so the Pi parser restarts on the new freq.
+  # Find your station: https://www.weather.gov/nwr/station_listing
+  nwr_wx_channel:
+    name: "NWR WX Channel"
+    icon: mdi:radio
+    options:
+      - "WX1 — 162.400 MHz"
+      - "WX2 — 162.425 MHz"
+      - "WX3 — 162.450 MHz"
+      - "WX4 — 162.475 MHz"
+      - "WX5 — 162.500 MHz"
+      - "WX6 — 162.525 MHz"
+      - "WX7 — 162.550 MHz"
+
+  # Notification sounds per tier (values map to your notify platform's sound names)
+  nwr_notify_sound_tier2:
+    name: "NWR Sound — Tier 2"
+    icon: mdi:bell
+    options: [default, alert, warning, none]
+  nwr_notify_sound_tier3:
+    name: "NWR Sound — Tier 3"
+    icon: mdi:bell-outline
+    options: [default, alert, warning, none]
+  nwr_notify_sound_tier4:
+    name: "NWR Sound — Tier 4"
+    icon: mdi:bell-off-outline
+    options: [default, alert, none]
+
+
+# ──────────────────────────────────────────────────────────────────
+#  INPUT TEXTS
+# ──────────────────────────────────────────────────────────────────
+input_text:
+
+  # Alert tracking (written by automations)
+  nwr_active_alerts:
+    name: "NWR Active Alerts"
+    max: 255
+    icon: mdi:format-list-bulleted
+  nwr_display_event_name:
+    name: "NWR Event Name"
+    max: 100
+    icon: mdi:bulletin-board
+  nwr_display_county_names:
+    name: "NWR County Names"
+    max: 200
+    icon: mdi:map-marker-radius
+  nwr_display_event_code:
+    name: "NWR Event Code"
+    max: 10
+    icon: mdi:code-tags
+  nwr_cached_expiry:
+    name: "NWR Cached Expiry"
+    max: 50
+    icon: mdi:clock-end
+
+  # ← EDIT these with your media player entity IDs
+  # Example: media_player.living_room_echo, media_player.sonos_bedroom
+  nwr_tts_player:
+    name: "NWR TTS Player Entity"
+    max: 100
+    icon: mdi:text-to-speech
+    initial: "media_player.YOUR_TTS_PLAYER"    # ← EDIT
+
+  nwr_stream_player:
+    name: "NWR Stream Player Entity"
+    max: 100
+    icon: mdi:speaker
+    initial: "media_player.YOUR_STREAM_PLAYER" # ← EDIT (can be same as TTS player)
+
+  # ← EDIT: URL of a live NWR audio stream (optional, for stream mode)
+  # Leave as-is if you only want TTS and not a live stream
+  # For self-hosted: see docs/audio_streaming.md
+  # For public streams: check broadcastify.com or nwrorg.org
+  nwr_stream_url:
+    name: "NWR Stream URL"
+    max: 200
+    icon: mdi:link
+    initial: ""   # ← EDIT: e.g. "http://192.168.1.x:8000/nwr.mp3"
+
+  # Station info (for dashboard header display only)
+  nwr_station_name:
+    name: "NWR Station Name"
+    max: 50
+    icon: mdi:radio-tower
+    initial: "My NWR Station"   # ← EDIT: e.g. "KIH54 Birmingham AL"
+
+
+# ──────────────────────────────────────────────────────────────────
+#  INPUT NUMBERS
+# ──────────────────────────────────────────────────────────────────
+input_number:
+  nwr_audio_volume:
+    name: "NWR Audio Volume"
+    min: 0
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    icon: mdi:volume-medium
+
+
+# ──────────────────────────────────────────────────────────────────
+#  TIMER
+# ──────────────────────────────────────────────────────────────────
+timer:
+  nwr_alert:
+    name: "NWR Alert Timer"
+    icon: mdi:timer-alert
+    restore: true
+
+
+# ──────────────────────────────────────────────────────────────────
+#  MQTT SENSORS  (Path A — SDR mode; ignored in API-only mode)
+# ──────────────────────────────────────────────────────────────────
+mqtt:
+  sensor:
+    - name: "NWR Parser Status"
+      unique_id: nwr_parser_status
+      state_topic: "nwr/status"
+      icon: mdi:raspberry-pi
+      expire_after: 180
+
+    - name: "NWR Last Alert Raw"
+      unique_id: nwr_last_alert_raw
+      state_topic: "nwr/alert"
+      value_template: "{{ value_json.event_code | default('none') }}"
+      json_attributes_topic: "nwr/alert"
+      json_attributes_template: "{{ value_json | tojson }}"
+      icon: mdi:antenna
+
+    - name: "NWR EOM Received"
+      unique_id: nwr_eom_received
+      state_topic: "nwr/eom"
+      icon: mdi:check-circle
+
+    - name: "NWR Heartbeat"
+      unique_id: nwr_heartbeat
+      state_topic: "nwr/heartbeat"
+      icon: mdi:heart-pulse
+      expire_after: 180
+
+    - name: "NWR Active Channel"
+      unique_id: nwr_active_channel
+      state_topic: "nwr/channel"
+      icon: mdi:radio
+      expire_after: 300
+
+
+# ──────────────────────────────────────────────────────────────────
+#  NWS REST API SENSORS
+#  Edit ZONE_1 and ZONE_2 with your zone IDs.
+#  Find yours: https://api.weather.gov/zones/county
+#  Example: ALZ009, OHC049, CAZ006
+# ──────────────────────────────────────────────────────────────────
+rest:
+  - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_1,YOUR_ZONE_2"  # ← EDIT
+    scan_interval: 60
+    headers:
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      Accept: "application/geo+json"
+    sensor:
+      - name: "NWS Active Alert Count"
+        unique_id: nws_active_alert_count
+        value_template: "{{ value_json.features | length }}"
+        icon: mdi:alert-circle-outline
+
+      - name: "NWS Active Alert Slot 1"
+        unique_id: nws_active_alert_slot_1
+        value_template: >
+          {{ value_json.features[0].properties.event if value_json.features | length > 0 else 'none' }}
+        attribute_templates:
+          area: >
+            {{ value_json.features[0].properties.areaDesc if value_json.features | length > 0 else '' }}
+          severity: >
+            {{ value_json.features[0].properties.severity if value_json.features | length > 0 else '' }}
+          headline: >
+            {{ value_json.features[0].properties.headline if value_json.features | length > 0 else '' }}
+          description: >
+            {{ value_json.features[0].properties.description if value_json.features | length > 0 else '' }}
+          instruction: >
+            {{ value_json.features[0].properties.instruction if value_json.features | length > 0 else '' }}
+          expires: >
+            {{ value_json.features[0].properties.expires if value_json.features | length > 0 else '' }}
+          countdown: >
+            {% if value_json.features | length > 0 %}
+              {% set exp = value_json.features[0].properties.expires %}
+              {% set d = ((exp | as_datetime) - now()).total_seconds() | int %}
+              {{ (d // 3600) ~ 'h ' ~ ((d % 3600) // 60) ~ 'm' if d // 3600 > 0 else ((d % 3600) // 60) ~ 'm' }} remaining
+            {% endif %}
+
+      - name: "NWS Active Alert Slot 2"
+        unique_id: nws_active_alert_slot_2
+        value_template: >
+          {{ value_json.features[1].properties.event if value_json.features | length > 1 else 'none' }}
+        attribute_templates:
+          area: >
+            {{ value_json.features[1].properties.areaDesc if value_json.features | length > 1 else '' }}
+          severity: >
+            {{ value_json.features[1].properties.severity if value_json.features | length > 1 else '' }}
+          countdown: >
+            {% if value_json.features | length > 1 %}
+              {% set exp = value_json.features[1].properties.expires %}
+              {% set d = ((exp | as_datetime) - now()).total_seconds() | int %}
+              {{ (d // 3600) ~ 'h ' ~ ((d % 3600) // 60) ~ 'm' if d // 3600 > 0 else ((d % 3600) // 60) ~ 'm' }} remaining
+            {% endif %}
+
+      - name: "NWS Active Alert Slot 3"
+        unique_id: nws_active_alert_slot_3
+        value_template: >
+          {{ value_json.features[2].properties.event if value_json.features | length > 2 else 'none' }}
+        attribute_templates:
+          area: >
+            {{ value_json.features[2].properties.areaDesc if value_json.features | length > 2 else '' }}
+          severity: >
+            {{ value_json.features[2].properties.severity if value_json.features | length > 2 else '' }}
+          countdown: >
+            {% if value_json.features | length > 2 %}
+              {% set exp = value_json.features[2].properties.expires %}
+              {% set d = ((exp | as_datetime) - now()).total_seconds() | int %}
+              {{ (d // 3600) ~ 'h ' ~ ((d % 3600) // 60) ~ 'm' if d // 3600 > 0 else ((d % 3600) // 60) ~ 'm' }} remaining
+            {% endif %}
+
+      - name: "NWS Active Alert Slot 4"
+        unique_id: nws_active_alert_slot_4
+        value_template: >
+          {{ value_json.features[3].properties.event if value_json.features | length > 3 else 'none' }}
+        attribute_templates:
+          area: "{{ value_json.features[3].properties.areaDesc if value_json.features | length > 3 else '' }}"
+          severity: "{{ value_json.features[3].properties.severity if value_json.features | length > 3 else '' }}"
+
+      - name: "NWS Active Alert Slot 5"
+        unique_id: nws_active_alert_slot_5
+        value_template: >
+          {{ value_json.features[4].properties.event if value_json.features | length > 4 else 'none' }}
+        attribute_templates:
+          area: "{{ value_json.features[4].properties.areaDesc if value_json.features | length > 4 else '' }}"
+          severity: "{{ value_json.features[4].properties.severity if value_json.features | length > 4 else '' }}"
+
+  # Per-zone counts (optional — used in System Status card)
+  - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_1"  # ← EDIT
+    scan_interval: 60
+    headers:
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      Accept: "application/geo+json"
+    sensor:
+      - name: "NWS Zone 1 Alert Count"
+        unique_id: nws_zone1_alert_count
+        value_template: "{{ value_json.features | length }}"
+        icon: mdi:map-marker
+
+  - resource: "https://api.weather.gov/alerts/active?zone=YOUR_ZONE_2"  # ← EDIT
+    scan_interval: 60
+    headers:
+      User-Agent: "(HA-NWR-SDR integration, https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR)"
+      Accept: "application/geo+json"
+    sensor:
+      - name: "NWS Zone 2 Alert Count"
+        unique_id: nws_zone2_alert_count
+        value_template: "{{ value_json.features | length }}"
+        icon: mdi:map-marker
+
+
+# ──────────────────────────────────────────────────────────────────
+#  TEMPLATE SENSORS
+# ──────────────────────────────────────────────────────────────────
+template:
+  - sensor:
+
+      - name: "NWR Parser Status Display"
+        unique_id: nwr_parser_status_display
+        icon: mdi:raspberry-pi
+        state: >
+          {% if is_state('input_boolean.nwr_sdr_mode_enabled', 'off') %}disabled
+          {% else %}
+            {% set s = states('sensor.nwr_parser_status') %}
+            {{ 'offline' if s in ('unknown','unavailable') else s }}
+          {% endif %}
+
+      - name: "NWR Alert Duration Remaining"
+        unique_id: nwr_alert_duration_remaining
+        icon: mdi:timer
+        state: >
+          {% set raw = states('input_text.nwr_cached_expiry') %}
+          {% if raw in ('','unknown','unavailable') %}--
+          {% else %}
+            {% set d = ((raw | as_datetime) - now()).total_seconds() | int %}
+            {% if d <= 0 %}Expired
+            {% elif d // 3600 > 0 %}{{ (d // 3600) ~ 'h ' ~ ((d % 3600) // 60) ~ 'm' }} remaining
+            {% else %}{{ ((d % 3600) // 60) ~ 'm' }} remaining{% endif %}
+          {% endif %}
+
+      - name: "NWR Data Source"
+        unique_id: nwr_data_source
+        icon: mdi:check-network
+        state: >
+          {% set same = states('input_text.nwr_display_event_code') not in ('','unknown','unavailable') %}
+          {% set api  = states('sensor.nws_active_alert_count') | int(0) > 0 %}
+          {% if same and api %}SAME + NWS API
+          {% elif same %}SAME Radio Only
+          {% elif api %}NWS API Only
+          {% else %}Monitoring{% endif %}
+
+      # Best available headline — NWS API preferred (has full text), SAME as fallback
+      - name: "NWR Effective Headline"
+        unique_id: nwr_effective_headline
+        icon: mdi:bulletin-board
+        state: >
+          {% set nws = state_attr('sensor.nws_active_alert_slot_1', 'headline') %}
+          {{ nws if nws and nws not in ('unknown','unavailable','') else states('input_text.nwr_display_event_name') }}
+
+      - name: "NWR Effective Area"
+        unique_id: nwr_effective_area
+        icon: mdi:map-marker-radius
+        state: >
+          {% set nws = state_attr('sensor.nws_active_alert_slot_1', 'area') %}
+          {{ nws if nws and nws not in ('unknown','unavailable','') else states('input_text.nwr_display_county_names') }}
+
+      - name: "NWR Effective Description"
+        unique_id: nwr_effective_description
+        icon: mdi:text-long
+        state: >
+          {% set nws = state_attr('sensor.nws_active_alert_slot_1', 'description') %}
+          {{ (nws | truncate(255)) if nws and nws not in ('unknown','unavailable','',none) else 'No description available' }}
+
+      - name: "NWR Effective Instruction"
+        unique_id: nwr_effective_instruction
+        icon: mdi:format-list-checks
+        state: >
+          {% set nws = state_attr('sensor.nws_active_alert_slot_1', 'instruction') %}
+          {{ (nws | truncate(255)) if nws and nws not in ('unknown','unavailable','',none) else 'No specific instructions' }}
+
+      - name: "NWR TTS Message"
+        unique_id: nwr_tts_message
+        icon: mdi:text-to-speech
+        state: >
+          {% set event = states('input_text.nwr_display_event_name') %}
+          {% set area  = states('sensor.nwr_effective_area') %}
+          {% set head  = states('sensor.nwr_effective_headline') %}
+          {% set msg   = 'NOAA Weather Alert. ' ~ event ~ ' in effect for ' ~ area ~ '. ' ~ head %}
+          {% if is_state('input_boolean.nwr_tts_include_description', 'on') %}
+            {% set msg = msg ~ ' ' ~ states('sensor.nwr_effective_description') %}{% endif %}
+          {% if is_state('input_boolean.nwr_tts_include_instruction', 'on') %}
+            {% set msg = msg ~ ' ' ~ states('sensor.nwr_effective_instruction') %}{% endif %}
+          {{ msg | truncate(255) }}
+
+
+# ──────────────────────────────────────────────────────────────────
+#  AUTOMATIONS
+# ──────────────────────────────────────────────────────────────────
+automation:
+
+  # ── WX Channel change → publish to MQTT for Pi parser ──────────
+  - id: nwr_channel_changed
+    alias: "NWR — WX Channel Changed"
+    description: "Publishes the new channel to MQTT so nwr_parser.py can retune"
+    trigger:
+      - platform: state
+        entity_id: input_select.nwr_wx_channel
+    condition:
+      - condition: state
+        entity: input_boolean.nwr_sdr_mode_enabled
+        state: "on"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "nwr/set_channel"
+          payload: "{{ states('input_select.nwr_wx_channel') }}"
+          retain: true
+
+
+  # ── New SAME alert from Pi parser ──────────────────────────────
+  - id: nwr_same_alert_received
+    alias: "NWR — SAME Alert Received"
+    trigger:
+      - platform: mqtt
+        topic: "nwr/alert"
+    variables:
+      event_code: "{{ trigger.payload_json.event_code }}"
+      event_name: "{{ trigger.payload_json.event_code }}"   # name lookup done in template sensors
+      expiry:     "{{ trigger.payload_json.expiry_time }}"
+      tier:       "{{ trigger.payload_json.tier | int }}"
+      fips:       "{{ trigger.payload_json.fips_codes | join(', ') }}"
+    action:
+      # Skip Tier 5 tests unless test mode is on
+      - condition: template
+        value_template: >
+          {{ tier != 5 or is_state('input_boolean.nwr_weekly_test_mode', 'on') }}
+
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_display_event_code }
+        data: { value: "{{ event_code }}" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_display_county_names }
+        data: { value: "{{ fips }}" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_cached_expiry }
+        data: { value: "{{ expiry }}" }
+
+      # Merge into active alerts dict
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_active_alerts }
+        data:
+          value: >
+            {% set raw = states('input_text.nwr_active_alerts') %}
+            {% set d = raw | from_json if raw not in ('','unknown','unavailable','{}') else {} %}
+            {{ dict(d, **{event_code: expiry}) | tojson }}
+
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.nwr_alert_active }
+
+      - service: timer.start
+        target: { entity_id: timer.nwr_alert }
+        data:
+          duration: >
+            {{ [((expiry | as_datetime) - now()).total_seconds() | int, 0] | max }}
+
+      # Tiered notifications
+      # ← EDIT: replace notify.YOUR_SERVICE with your actual notify service(s)
+      # See https://www.home-assistant.io/integrations/notify/
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ tier == 1 }}"
+            sequence:
+              - service: notify.YOUR_SERVICE   # ← EDIT
+                data:
+                  title: "🚨 {{ event_code }} ALERT"
+                  message: "{{ event_code }} for {{ fips }}. Expires {{ expiry }}."
+                  data:
+                    push:
+                      sound: "default"
+                      interruption-level: critical
+
+          - conditions:
+              - condition: template
+                value_template: "{{ tier == 2 }}"
+              - condition: state
+                entity: input_boolean.nwr_notify_tier2
+                state: "on"
+            sequence:
+              - service: notify.YOUR_SERVICE   # ← EDIT
+                data:
+                  title: "⚠️ {{ event_code }}"
+                  message: "{{ event_code }} · {{ fips }}"
+                  data: { push: { sound: "{{ states('input_select.nwr_notify_sound_tier2') }}" } }
+
+          - conditions:
+              - condition: template
+                value_template: "{{ tier == 3 }}"
+              - condition: state
+                entity: input_boolean.nwr_notify_tier3
+                state: "on"
+            sequence:
+              - service: notify.YOUR_SERVICE   # ← EDIT
+                data:
+                  title: "🟡 {{ event_code }}"
+                  message: "{{ event_code }} · {{ fips }}"
+                  data: { push: { sound: "{{ states('input_select.nwr_notify_sound_tier3') }}" } }
+
+          - conditions:
+              - condition: template
+                value_template: "{{ tier == 4 }}"
+              - condition: state
+                entity: input_boolean.nwr_notify_tier4
+                state: "on"
+            sequence:
+              - service: notify.YOUR_SERVICE   # ← EDIT
+                data:
+                  title: "🔵 {{ event_code }}"
+                  message: "{{ event_code }} · {{ fips }}"
+                  data:
+                    push:
+                      interruption-level: >
+                        {{ 'critical' if is_state('input_boolean.nwr_tier4_critical','on') else 'active' }}
+
+          - conditions:
+              - condition: template
+                value_template: "{{ tier == 5 }}"
+              - condition: state
+                entity: input_boolean.nwr_notify_tier5
+                state: "on"
+            sequence:
+              - service: notify.YOUR_SERVICE   # ← EDIT
+                data:
+                  title: "⚪ NWR Test Received"
+                  message: "{{ event_code }} received on {{ states('input_select.nwr_wx_channel') }}"
+
+      # TTS announcement
+      - condition: template
+        value_template: >
+          {{ (tier <= 2) or is_state('input_boolean.nwr_tts_enable', 'on') }}
+      - condition: template
+        value_template: "{{ states('input_text.nwr_tts_player') not in ('','unknown','unavailable','media_player.YOUR_TTS_PLAYER') }}"
+      - service: tts.speak
+        target:
+          entity_id: "{{ states('input_text.nwr_tts_player') }}"
+        data:
+          message: "{{ states('sensor.nwr_tts_message') }}"
+          cache: false
+
+      # Audio stream (if stream URL and stream player are configured)
+      - condition: state
+        entity: input_boolean.nwr_audio_on_alert
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ (tier == 1) or not is_state('input_boolean.nwr_audio_tier1_only', 'on') }}
+      - condition: template
+        value_template: "{{ states('input_text.nwr_stream_url') not in ('','unknown','unavailable') }}"
+      - service: media_player.play_media
+        target:
+          entity_id: "{{ states('input_text.nwr_stream_player') }}"
+        data:
+          media_content_id: "{{ states('input_text.nwr_stream_url') }}"
+          media_content_type: music
+
+
+  # ── Alert timer expired ─────────────────────────────────────────
+  - id: nwr_alert_timer_expired
+    alias: "NWR — Alert Timer Expired"
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data: { entity_id: timer.nwr_alert }
+    action:
+      # Prune expired codes from active dict
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_active_alerts }
+        data:
+          value: >
+            {% set raw = states('input_text.nwr_active_alerts') %}
+            {% set d = raw | from_json if raw not in ('','unknown','unavailable','{}') else {} %}
+            {% set pruned = {} %}
+            {% for code, exp in d.items() %}
+              {% if (exp | as_datetime) > now() %}
+                {% set pruned = dict(pruned, **{code: exp}) %}
+              {% endif %}
+            {% endfor %}
+            {{ pruned | tojson }}
+      # Clear alert state if nothing left
+      - condition: template
+        value_template: >
+          {% set raw = states('input_text.nwr_active_alerts') %}
+          {% set d = raw | from_json if raw not in ('','unknown','unavailable','{}') else {} %}
+          {{ d | length == 0 }}
+      - service: input_boolean.turn_off
+        target: { entity_id: input_boolean.nwr_alert_active }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_display_event_code }
+        data: { value: "" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_cached_expiry }
+        data: { value: "" }
+
+
+  # ── EOM received → clear if NWS API also shows no alerts ───────
+  - id: nwr_eom_received
+    alias: "NWR — EOM Received"
+    trigger:
+      - platform: mqtt
+        topic: "nwr/eom"
+    action:
+      - delay: "00:00:05"
+      - condition: template
+        value_template: "{{ states('sensor.nws_active_alert_count') | int(0) == 0 }}"
+      - service: input_boolean.turn_off
+        target: { entity_id: input_boolean.nwr_alert_active }
+      - service: timer.cancel
+        target: { entity_id: timer.nwr_alert }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_active_alerts }
+        data: { value: "{}" }
+
+
+  # ── NWS API detected alert with no SAME → activate ─────────────
+  - id: nwr_nws_api_fallback
+    alias: "NWR — NWS API Fallback Alert"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ states('sensor.nws_active_alert_count') | int(0) > 0
+             and not is_state('input_boolean.nwr_alert_active', 'on') }}
+        for: "00:01:00"
+    action:
+      - service: input_boolean.turn_on
+        target: { entity_id: input_boolean.nwr_alert_active }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_display_event_name }
+        data: { value: "{{ states('sensor.nws_active_alert_slot_1') }}" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_display_county_names }
+        data: { value: "{{ state_attr('sensor.nws_active_alert_slot_1', 'area') }}" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_cached_expiry }
+        data: { value: "{{ state_attr('sensor.nws_active_alert_slot_1', 'expires') }}" }
+      # Notify via API-sourced alert (Tier determined by event name lookup is not available here;
+      # use notify for all API-only alerts — user can disable tiers in Settings)
+      - service: notify.YOUR_SERVICE   # ← EDIT
+        data:
+          title: "📡 NWS Alert"
+          message: >
+            {{ states('sensor.nws_active_alert_slot_1') }} —
+            {{ state_attr('sensor.nws_active_alert_slot_1', 'area') }}
+
+
+  # ── NWS API all-clear ───────────────────────────────────────────
+  - id: nwr_nws_all_clear
+    alias: "NWR — NWS API All Clear"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ states('sensor.nws_active_alert_count') | int(0) == 0
+             and is_state('input_boolean.nwr_alert_active', 'on') }}
+        for: "00:02:00"
+    action:
+      - service: input_boolean.turn_off
+        target: { entity_id: input_boolean.nwr_alert_active }
+      - service: timer.cancel
+        target: { entity_id: timer.nwr_alert }
+      - service: input_text.set_value
+        target: { entity_id: input_text.nwr_active_alerts }
+        data: { value: "{}" }
+
+
+  # ── Parser heartbeat watchdog ───────────────────────────────────
+  - id: nwr_parser_offline
+    alias: "NWR — Parser Offline"
+    trigger:
+      - platform: state
+        entity_id: sensor.nwr_heartbeat
+        to: "unavailable"
+        for: "00:05:00"
+    condition:
+      - condition: state
+        entity: input_boolean.nwr_sdr_mode_enabled
+        state: "on"
+    action:
+      - service: notify.YOUR_SERVICE   # ← EDIT
+        data:
+          title: "📡 NWR Parser Offline"
+          message: "No heartbeat from NWR Pi parser for 5 minutes."
+
+
+  # ── Safety relay — Tier 1 only ──────────────────────────────────
+  # ← EDIT: replace switch.YOUR_RELAY with your relay entity, or delete this automation
+  - id: nwr_safety_relay_on
+    alias: "NWR — Safety Relay On"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.nwr_alert_active
+        to: "on"
+    condition:
+      - condition: state
+        entity: input_boolean.nwr_safety_relay_enable
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('input_text.nwr_display_event_code') in
+             ['TOR','EWW','FFW','TSW','NUW','RHW','HMW','SPW','EVI','CDW','VOW','EQW','LEW','LAW','CEM'] }}
+    action:
+      - service: switch.turn_on
+        target: { entity_id: switch.YOUR_RELAY }   # ← EDIT
+
+  - id: nwr_safety_relay_off
+    alias: "NWR — Safety Relay Off"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.nwr_alert_active
+        to: "off"
+    action:
+      - service: switch.turn_off
+        target: { entity_id: switch.YOUR_RELAY }   # ← EDIT

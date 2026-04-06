@@ -1,0 +1,19 @@
+[Unit]
+Description=NOAA Weather Radio SAME Decoder / MQTT Publisher
+Documentation=https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/python3 /opt/nwr/nwr_parser.py
+Restart=on-failure
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
