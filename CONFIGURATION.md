@@ -81,7 +81,7 @@ sudo mkdir -p /opt/nwr
 sudo chown $USER:$USER /opt/nwr
 
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/nwr-ha-integration.git /tmp/nwr-install
+git clone https://github.com/swise01/HA-NWR-SDR.git /tmp/nwr-install
 cp /tmp/nwr-install/pi/nwr_parser.py /opt/nwr/
 
 # Install Python dependency
@@ -90,16 +90,20 @@ pip3 install paho-mqtt
 
 ### 3d — Configure nwr_parser.py
 
-Edit `/opt/nwr/nwr_parser.py` and update the `CONFIGURE ME` section:
+Edit `/opt/nwr/nwr_parser.py` and update the `# ← EDIT THIS SECTION` block near the top:
 
 ```python
-NWR_FREQUENCY_HZ  = 162_550_000    # Your station's frequency in Hz
-RTL_PPM_CORRECTION = 0              # Run `rtl_test -p` for 60+ seconds to find yours
-FIPS_FILTER        = ["001073", "001009"]  # Your county FIPS codes
-MQTT_HOST          = "192.168.1.x"  # Your HA/Mosquitto IP
-MQTT_USER          = "mqtt_user"    # If auth is enabled
-MQTT_PASSWORD      = "mqtt_pass"
+MQTT_HOST       = "homeassistant.local"  # ← EDIT: your MQTT broker IP or hostname
+MQTT_PORT       = 1883
+MQTT_USER       = ""                     # ← EDIT: leave blank if no auth
+MQTT_PASSWORD   = ""                     # ← EDIT: leave blank if no auth
+
+FIPS_FILTER = [
+    # "0SSCCC",    # ← EDIT: add your county FIPS codes here
+]
 ```
+
+> **Note:** You do NOT set a frequency here. The active WX channel is controlled from your HA dashboard — when you change the channel selector, HA sends the new frequency to the parser via MQTT and it restarts the SDR pipeline automatically. The default startup channel is WX7 (162.550 MHz) and can be changed from the Settings tab in the dashboard.
 
 ### 3e — Install and start the service
 
@@ -138,16 +142,15 @@ cp homeassistant/packages/nwr.yaml /config/packages/nwr.yaml
 
 ### 4c — Edit the package
 
-Open `/config/packages/nwr.yaml` and update all `# CONFIGURE_ME` lines:
+Open `/config/packages/nwr.yaml` and find all `# ← EDIT` comments. There are about 10 of them:
 
 | Placeholder | Replace with |
 |---|---|
-| `ZONE_1` | Your first NWS zone ID (e.g. `ALZ009`) |
-| `ZONE_2` | Your second NWS zone ID (e.g. `ALZ073`) |
-| `YOUR_NOTIFY_SERVICE` | Your HA notify service (e.g. `notify.mobile_app_my_phone`) |
-| `YOUR_TTS_PLAYER` | Your TTS media player entity |
-| `YOUR_SAFETY_RELAY` | Your relay switch entity (or remove this automation) |
-| `YOUR_PI_IP:8000` | Your Pi's IP and stream port (if using audio streaming) |
+| `YOUR_ZONE_1` | Your first NWS zone ID (e.g. `ALZ009`) |
+| `YOUR_ZONE_2` | Your second NWS zone ID (e.g. `ALZ073`) |
+| `notify.YOUR_SERVICE` | Your HA notify service (e.g. `notify.mobile_app_my_phone`) |
+| `media_player.YOUR_PLAYER` | Your TTS media player entity |
+| `switch.YOUR_SAFETY_RELAY` | Your relay/switch entity for Tier 1 (or remove that automation) |
 
 ### 4d — Restart Home Assistant
 
@@ -170,23 +173,22 @@ Via HACS → Frontend:
 2. Give it a name (e.g. "NWR Weather Radio")
 3. Open the new dashboard → 3-dot menu → **Edit → Raw configuration editor**
 4. Paste the contents of `dashboard/nwr_alerts_v2.yaml`
-5. Replace all `YOUR_STATION_ID`, `YOUR_CITY`, `YOUR_FREQUENCY`, `YOUR_COUNTIES`, `YOUR_COUNTIES` with your values
-6. Replace `CONFIGURE_ME` media_player entity IDs with yours
-7. Save
+5. Find the `# ← EDIT` comments at the top of the file and fill in your station name, city, and county names
+6. Save
+
+> **Heads up:** The dashboard is a functional starter — it works and shows everything you need, but it's not polished. It was built by someone who knows weather radio, not someone who knows Lovelace. PRs to improve it are very welcome.
 
 ---
 
 ## Step 6 — Optional: Audio Streaming
 
-If you want live NWR audio streamed to speakers during alerts, you need to run a streaming server on the Pi. A simple approach using `darkice` + `icecast2`:
+The parser includes a built-in audio stream — `rtl_fm` is piped through `ffmpeg` with a volume boost and served as an MP3 stream on port 8765. No extra software needed.
 
-```bash
-sudo apt-get install -y icecast2 darkice
-```
+Stream URL: `http://YOUR_PI_IP:8765/nwr.mp3`
 
-Configure darkice to pipe rtl_fm audio to an Icecast mountpoint. Then set `NWR_AUDIO_URL` in the package template sensor to `http://YOUR_PI_IP:8000/nwr.mp3`.
+In the HA Settings tab, enter this URL in the **Stream Player URL** field and set your media player entity. HA will play the stream to your speaker when an alert fires.
 
-Detailed audio streaming setup: see `docs/audio_streaming.md` (coming soon / PRs welcome).
+See [docs/audio_streaming.md](docs/audio_streaming.md) for tuning and player examples.
 
 ---
 

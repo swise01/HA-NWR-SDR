@@ -31,7 +31,7 @@
 - 🔄 **Dual-source intelligence** — SAME decode + NWS API data merged for best available headline/description  
 - 🚨 **Safety relay output** — optionally trigger a strobe or siren on Tier 1 alerts  
 - 💓 **Heartbeat watchdog** — notifies you if the Pi parser goes offline  
-- 🖥️ **Three-tab Lovelace dashboard** — live monitoring, alert drill-down, and settings  
+- 🖥️ **Three-tab Lovelace dashboard** — live monitoring, alert drill-down, and settings *(functional starter — see note below)*  
 
 ---
 
@@ -236,18 +236,29 @@ For Path A users wanting to self-host the audio stream, see [docs/audio_streamin
 
 ---
 
+## 🖥️ About the Dashboard
+
+The included Lovelace dashboard is a **functional starter** — it works, it shows what you need, and it gets the job done. It is not pretty. The YAML is longer than it should be and there are rough edges I never got around to fixing.
+
+I built this to solve a real problem at my house and decided to share it in case it helps anyone else. I am not a frontend developer and the dashboard shows that.
+
+**If you are more skilled than me at Lovelace, card-mod, or HA dashboards — please make it better.** I genuinely look forward to seeing what the community does with this. A pull request that replaces my dashboard with something cleaner would make my day. Screenshots of your setup are even more welcome.
+
+---
+
 ## 🤝 Contributing
 
 This is a community project — PRs, issues, and ideas are all welcome.
 
-**Good first contributions:**
-- Testing on different RTL-SDR hardware  
-- Adding Sonos / Google Home audio examples  
-- Android notification optimization  
-- Documentation improvements  
-- Non-US / Canadian Weatheradio adaptations  
+Honest assessment of where help is most needed:
+- **Dashboard redesign** — the current one works but needs a skilled eye
+- **Screenshots** — I haven't added any; if you get this running, a screenshot PR would help everyone
+- **Testing on different RTL-SDR hardware** — V3, generic dongles, other tuners
+- **Sonos / Google Home audio examples**
+- **Non-US / Canadian Weatheradio adaptations** (different SAME codes, frequencies)
+- **Android notification optimization**
 
-Please open an issue before large PRs. See [CONTRIBUTING.md](CONTRIBUTING.md).
+I built this to scratch my own itch. I look forward to people far more skilled than me taking it somewhere I never could. Please open an issue before large PRs. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
