@@ -172,7 +172,7 @@ Via HACS → Frontend:
 1. Go to **Settings → Dashboards → Add Dashboard**
 2. Give it a name (e.g. "NWR Weather Radio")
 3. Open the new dashboard → 3-dot menu → **Edit → Raw configuration editor**
-4. Paste the contents of `dashboard/nwr_alerts_v2.yaml`
+4. Paste the contents of `dashboard/nwr_alerts.yaml`
 5. Find the `# ← EDIT` comments at the top of the file and fill in your station name, city, and county names
 6. Save
 

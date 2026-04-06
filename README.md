@@ -162,7 +162,7 @@ Then **restart Home Assistant**.
 1. HA → Settings → Dashboards → **Add Dashboard**
 2. Give it a name, e.g. "NWR Weather Radio"
 3. Open it → 3-dot menu → **Edit → Raw configuration editor**
-4. Paste the contents of `dashboard/nwr_alerts_v2.yaml`
+4. Paste the contents of `dashboard/nwr_alerts.yaml`
 5. Update the two `# ← EDIT` lines with your station name and counties
 6. Save
 
