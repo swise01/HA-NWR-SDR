@@ -1,0 +1,18 @@
+[Unit]
+Description=NWR and meter MQTT event audit log
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/opt/nwr/nwr-mqtt-audit.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nwr-mqtt-audit
+
+[Install]
+WantedBy=multi-user.target

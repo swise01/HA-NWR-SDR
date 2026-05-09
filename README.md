@@ -1,280 +1,186 @@
-<div align="center">
+# HA-NWR-SDR v2
 
-# 📡 HA-NWR-SDR
+NOAA Weather Radio alerting for Home Assistant using an RTL-SDR on a Raspberry Pi and MQTT.
 
-### NOAA Weather Radio Integration for Home Assistant
+v2 is focused on the architecture that is reliable today:
 
-**Real-time SAME/EAS alert decoding · NWS API fallback · Tiered notifications · Any audio output**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![HA Version](https://img.shields.io/badge/Home%20Assistant-2023.6%2B-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
-[![HACS Cards](https://img.shields.io/badge/Requires-Mushroom%20%2B%20card--mod-orange)](https://hacs.xyz/)
-[![RTL-SDR](https://img.shields.io/badge/Optional-RTL--SDR-brightgreen)](https://www.rtl-sdr.com/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-
----
-
-> **Works two ways** — use a cheap RTL-SDR dongle for live over-the-air SAME decoding, or run entirely on the NWS API with no hardware at all. Both modes use the same dashboard and package.
-
-</div>
-
----
-
-## ✨ What it does
-
-- 🎙️ **Decodes SAME/EAS headers** from your local NWR transmitter in real time using an RTL-SDR + Raspberry Pi  
-- 🌐 **Polls the NWS Alerts API** every 60 seconds as a backup (or as your only source if you skip the SDR)  
-- 🔔 **5-tier alert system** — Tier 1 (Tornado, Nuclear, etc.) is hardwired on; Tiers 2–5 are individually toggleable  
-- 📻 **7 WX channels pre-loaded** — pick your station from a dropdown, no frequency lookup needed  
-- 🔊 **Works with any HA media player** — just enter your entity ID; supports TTS and direct streaming  
-- 📱 **Tiered push notifications** with per-tier sound selection  
-- 🔄 **Dual-source intelligence** — SAME decode + NWS API data merged for best available headline/description  
-- 🚨 **Safety relay output** — optionally trigger a strobe or siren on Tier 1 alerts  
-- 💓 **Heartbeat watchdog** — notifies you if the Pi parser goes offline  
-- 🖥️ **Three-tab Lovelace dashboard** — live monitoring, alert drill-down, and settings *(functional starter — see note below)*  
-
----
-
-## 📋 Choose your path
-
-| | **Path A — SDR + NWS API** | **Path B — NWS API Only** |
-|---|---|---|
-| Hardware | Raspberry Pi + RTL-SDR | None |
-| Alert source | SAME radio decode + NWS API | NWS API only |
-| Alert latency | Seconds (radio speed) | ~60 seconds |
-| Setup effort | ~30 minutes | ~5 minutes |
-| Works during internet outage | ✅ SAME still decodes | ❌ |
-| Cost | ~$25 for RTL-SDR | Free |
-
-> **Tip:** Start with Path B to validate your setup, then add the SDR later for full functionality.
-
----
-
-## 🗺️ Architecture
-
-```
-PATH A — SDR + NWS API                    PATH B — NWS API Only
-┌─────────────────────────┐               
-│      RASPBERRY PI       │               
-│                         │               
-│  RTL-SDR → rtl_fm       │               ╔═══════════════╗
-│         → multimon-ng   │               ║ HOME ASSISTANT ║
-│         → nwr_parser.py │──MQTT──┐      ║               ║
-└─────────────────────────┘        │      ║  NWS REST API ║
-                                   └─────►║  (60s poll)   ║
-                                          ║               ║
-                                          ║  Automations  ║
-                                          ║  Dashboard    ║
-                                          ║  Notify / TTS ║
-                                          ╚═══════════════╝
+```text
+RTL-SDR -> Raspberry Pi parser -> MQTT -> HACS integration
 ```
 
----
+The parser decodes SAME/EAS headers from local NOAA Weather Radio, publishes structured alert JSON to MQTT, hosts a live MP3 stream, and keeps enough local logs to debug missed weekly tests after the fact. The Home Assistant integration consumes that same MQTT contract whether the publisher is the Pi parser or a future HAOS add-on.
 
-## 🧰 Hardware (Path A only)
+## Status
 
-- **Raspberry Pi** — any model with USB (3B+ or Zero 2W recommended)  
-- **RTL-SDR dongle** — [RTL-SDR Blog V4](https://www.rtl-sdr.com/buy-rtl-sdr-dongles/) ~$30, includes antenna  
-- That's it. A basic wire dipole cut to 17" works great at 162 MHz.
+Supported now:
 
----
+- Split Raspberry Pi plus Home Assistant over MQTT
+- RTL-SDR radio decode with `rtl_fm`, `ffmpeg`, and `multimon-ng`
+- Dual SAME decode paths: raw audio and filtered audio
+- Duplicate SAME/EOM suppression
+- NWS-issued expiry timestamps from SAME `JJJHHMM + valid duration`
+- Retained MQTT state for HA startup recovery
+- 30-day parser logs
+- 10-day MQTT event audit logs for `nwr/#`
+- HACS integration with common entities and events
+- Separate actual SAME severity and effective automation severity
 
-## 📡 NWR Frequencies — All 7 Channels Pre-Loaded
+Planned separately:
 
-The integration ships with all 7 standard NWR frequencies as a selectable dropdown. Just pick the one you can receive best.
+- Home Assistant OS add-on that runs the SDR/parser directly beside HA
 
-| Channel | Frequency |
-|---------|-----------|
-| WX1 | 162.400 MHz |
-| WX2 | 162.425 MHz |
-| WX3 | 162.450 MHz |
-| WX4 | 162.475 MHz |
-| WX5 | 162.500 MHz |
-| WX6 | 162.525 MHz |
-| WX7 | 162.550 MHz |
+HACS alone is not the right place to run `rtl_fm`, claim USB SDR hardware, or manage long-running decoder processes. A direct HAOS install should be a Supervisor add-on. The HACS integration is the common Home Assistant layer for both sources.
 
-**Find your nearest station and its channel:** [NOAA NWR Station Finder](https://www.weather.gov/nwr/station_listing)
+## MQTT Topics
 
----
+The v2 parser publishes:
 
-## 🔔 Alert Tier System
+| Topic | Retain | Payload |
+|---|---:|---|
+| `nwr/status` | yes | `running`, `offline`, or `error` |
+| `nwr/audio/url` | yes | HTTP MP3 stream URL |
+| `nwr/alert/same` | yes | SAME alert JSON |
+| `nwr/alert/eom` | yes | EOM JSON |
 
-| Tier | Level | Examples | Default |
-|------|-------|----------|---------|
-| **1** | Imminent Threat | Tornado Warning, Nuclear Warning, Flash Flood Warning | **Always on — cannot disable** |
-| **2** | Warning | Severe Thunderstorm, Hurricane, Blizzard, High Wind | On |
-| **3** | Watch | Tornado Watch, Flash Flood Watch, Winter Storm Watch | On |
-| **4** | Advisory / Statement | Special Weather Statement, Dense Fog, Air Quality | Off |
-| **5** | Test | Required Weekly Test, Monthly Test, Demo | Off |
+SAME alert JSON includes:
 
-**Full SAME event code reference:** [NWS Event Code Definitions](https://www.weather.gov/nwr/eventcodes)
+- `event_code`
+- `org`
+- `counties`
+- `wfo`
+- `valid_hours`
+- `valid_mins`
+- `valid_seconds`
+- `issue_utc`
+- `issue_expiry_utc`
+- `true_remaining_secs`
+- `received_utc`
+- `raw`
 
----
+## Install: Raspberry Pi Parser
 
-## 🚀 Installation
+Install OS packages:
 
-### Prerequisites
+```bash
+sudo apt-get update
+sudo apt-get install -y rtl-sdr multimon-ng ffmpeg python3-venv python3-pip mosquitto-clients logrotate
+```
 
-- Home Assistant (2023.6+)
-- [HACS](https://hacs.xyz/) installed
-- HACS Frontend cards: **Mushroom** and **card-mod**
-- An MQTT broker (Mosquitto add-on works great) — **required for Path A, optional for Path B**
+Prevent the Linux DVB driver from claiming the RTL-SDR:
 
----
+```bash
+echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
+sudo usermod -aG plugdev "$USER"
+sudo reboot
+```
 
-### Step 1 — Find your NWS Zone ID
+Install the parser:
 
-You need this for the NWS API, regardless of which path you choose.
+```bash
+sudo mkdir -p /opt/nwr
+sudo chown "$USER:$USER" /opt/nwr
+python3 -m venv /opt/nwr_venv
+/opt/nwr_venv/bin/pip install -r pi/requirements.txt
+cp pi/nwr_parser.py pi/nwr-mqtt-audit.sh /opt/nwr/
+cp pi/config.env.example /opt/nwr/config.env
+chmod +x /opt/nwr/nwr_parser.py /opt/nwr/nwr-mqtt-audit.sh
+```
 
-1. Go to [api.weather.gov/zones/county](https://api.weather.gov/zones/county)  
-2. Search (Ctrl+F) for your state and county  
-3. Note the zone ID — looks like `ALZ009` or `OHC049`  
-4. Repeat for any additional counties you want to monitor  
+Edit `/opt/nwr/config.env` for your MQTT broker, SDR serial/index, NWR frequency, and county FIPS filter.
 
----
+Install services and log rotation:
 
-### Step 2 — Install the HA Package
+```bash
+sudo cp pi/nwr_parser.service /etc/systemd/system/nwr.service
+sudo cp pi/nwr-mqtt-audit.service /etc/systemd/system/
+sudo cp pi/logrotate-nwr /etc/logrotate.d/nwr
+sudo systemctl daemon-reload
+sudo systemctl enable --now nwr.service nwr-mqtt-audit.service
+```
 
-Copy `homeassistant/packages/nwr.yaml` into your HA `packages/` directory.
+Check live state:
 
-Add to `configuration.yaml` if you haven't already:
+```bash
+systemctl status nwr.service nwr-mqtt-audit.service
+journalctl -u nwr.service -f
+tail -f /home/$USER/logs/nwr/parser.log
+tail -f /home/$USER/logs/mqtt/pi-mqtt.log
+```
+
+## Install: Home Assistant Integration
+
+Install this repository as a custom HACS integration:
+
+1. HACS -> Integrations -> three-dot menu -> Custom repositories.
+2. Repository: `https://github.com/swise01/HA-NWR-SDR`
+3. Category: Integration
+4. Install **HA-NWR-SDR**.
+5. Restart Home Assistant.
+6. Add **HA-NWR-SDR** from Home Assistant **Settings -> Devices & services**.
+
+Configuration:
+
+- `topic_root`: default `nwr`
+- `test_effective_severity`: slider from 1 to 5
+
+Required Weekly Test and Required Monthly Test events always remain labeled as tests with actual SAME tier 5. The effective severity slider only controls how strongly tests propagate to automations. Set it to 1 when you want weekly tests to exercise the same automations as imminent-threat alerts.
+
+The integration creates common entities and fires:
+
+```text
+nwr_same_alert_received
+nwr_eom_received
+nwr_alert_expired
+```
+
+Automate from those events however you want. This project does not assume you have any particular phone, speaker, relay board, alarm, or lighting setup.
+
+## Optional: YAML Bridge Package
+
+`homeassistant/packages/nwr.yaml` is a temporary bridge/example for users who do not want to install the custom integration yet. It follows the same event-first design.
+
+Do not install both the HACS integration and the YAML bridge package at the same time unless you intentionally want duplicate entities/events.
+
 ```yaml
 homeassistant:
   packages:
     nwr: !include packages/nwr.yaml
 ```
 
-Edit `nwr.yaml` — find all `# ← EDIT` comments and fill in your values:
+Edit only the NWS zone placeholders, or remove the `rest:` block if you only want SAME/MQTT data.
 
-| Placeholder | What to enter |
-|-------------|---------------|
-| `YOUR_ZONE_1` | NWS zone ID for your primary county |
-| `YOUR_ZONE_2` | NWS zone ID for a second county (or same as Zone 1) |
-| `notify.YOUR_SERVICE` | Your HA notify service name |
-| `media_player.YOUR_PLAYER` | Your media player entity for TTS/audio |
+Restart Home Assistant after editing.
 
-Then **restart Home Assistant**.
+## Weekly Test Debugging
 
----
+Most NWR weekly tests happen only once or twice per week, so v2 keeps durable logs:
 
-### Step 3 — Add the Dashboard
+- Parser decode logs: `/home/<user>/logs/nwr/parser.log`
+- MQTT event audit: `/home/<user>/logs/mqtt/pi-mqtt.log`
 
-1. HA → Settings → Dashboards → **Add Dashboard**
-2. Give it a name, e.g. "NWR Weather Radio"
-3. Open it → 3-dot menu → **Edit → Raw configuration editor**
-4. Paste the contents of `dashboard/nwr_alerts.yaml`
-5. Update the two `# ← EDIT` lines with your station name and counties
-6. Save
+When a test fails, check the parser log first:
 
----
+- `multimon[raw]: ... ZCZC...` means the raw path decoded the header.
+- `multimon[filtered]: ... ZCZC...` means the filtered path decoded the header.
+- `EOM received` without a preceding `ZCZC` means the radio decoder heard the end marker but missed the header.
+- A line in `pi-mqtt.log` under `nwr/alert/same` means HA received an MQTT event to process.
 
-### Step 4 (Path A only) — Set up the Raspberry Pi
+## HAOS Direct SDR
 
-#### 4a — Install dependencies
-```bash
-sudo apt-get update && sudo apt-get install -y rtl-sdr multimon-ng python3-pip
-pip3 install paho-mqtt
+Direct HAOS SDR support should be built as a Home Assistant add-on, not just HACS.
 
-# Prevent the default DVB driver from grabbing the RTL-SDR:
-echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
-sudo usermod -aG plugdev $USER
-sudo reboot
+Reason:
+
+- HACS custom integrations run inside Home Assistant Core.
+- SDR decoding needs USB hardware access, native packages, long-running child processes, and log rotation.
+- Supervisor add-ons are designed for that boundary.
+
+The likely future shape is:
+
+```text
+HAOS add-on: rtl_fm + ffmpeg + multimon-ng + parser
+HACS integration: common entities, events, setup flow, diagnostics, repairs
+YAML/dashboard: optional examples only
 ```
 
-#### 4b — Test your SDR
-```bash
-rtl_test -t          # Should show your device
-```
-
-#### 4c — Install and configure the parser
-```bash
-sudo mkdir -p /opt/nwr
-sudo chown $USER /opt/nwr
-cp pi/nwr_parser.py /opt/nwr/
-```
-
-Edit `/opt/nwr/nwr_parser.py` — fill in the `# ← EDIT` section:
-- Your MQTT host/credentials  
-- Your FIPS county codes (see below)  
-- Channel is controlled from the HA dashboard — no need to set frequency here  
-
-**Finding your FIPS codes:**  
-Format: `0` + 2-digit state FIPS + 3-digit county FIPS = 6 digits  
-Look up yours at [NOAA FIPS reference](https://www.weather.gov/pimar/PubForecastArea)  
-Example: Jefferson County, Alabama → `001073`
-
-#### 4d — Install the service
-```bash
-sudo cp pi/nwr_parser.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now nwr_parser
-sudo journalctl -u nwr_parser -f   # Watch for "MQTT connected"
-```
-
----
-
-## ✅ Verification
-
-After setup, confirm these in your HA dashboard:
-
-- [ ] **System Status card** — NWS alert count shows a number (not `unavailable`)  
-- [ ] **Path A only:** Parser status shows `running`, heartbeat updates every 60s  
-- [ ] **Settings tab** — WX channel selector shows 7 options  
-- [ ] **Notification toggles** — Tiers 2–4 respond to toggle  
-- [ ] **Test:** Wait for Wednesday ~11am local — the weekly test (RWT) should appear if Tier 5 notify is on  
-
----
-
-## 🔊 Audio Setup
-
-The integration supports any Home Assistant media player. In the Settings tab, enter your player's entity ID in the **TTS Player** and **Stream Player** fields.
-
-- **TTS mode** — HA reads the alert text aloud via any TTS-capable player (Echo, Google, etc.)  
-- **Stream mode** — HA plays a live NWR audio stream URL to any player that supports HTTP streams  
-
-For Path A users wanting to self-host the audio stream, see [docs/audio_streaming.md](docs/audio_streaming.md).
-
----
-
-## 🖥️ About the Dashboard
-
-The included Lovelace dashboard is a **functional starter** — it works, it shows what you need, and it gets the job done. It is not pretty. The YAML is longer than it should be and there are rough edges I never got around to fixing.
-
-I built this to solve a real problem at my house and decided to share it in case it helps anyone else. I am not a frontend developer and the dashboard shows that.
-
-**If you are more skilled than me at Lovelace, card-mod, or HA dashboards — please make it better.** I genuinely look forward to seeing what the community does with this. A pull request that replaces my dashboard with something cleaner would make my day. Screenshots of your setup are even more welcome.
-
----
-
-## 🤝 Contributing
-
-This is a community project — PRs, issues, and ideas are all welcome.
-
-Honest assessment of where help is most needed:
-- **Dashboard redesign** — the current one works but needs a skilled eye
-- **Screenshots** — I haven't added any; if you get this running, a screenshot PR would help everyone
-- **Testing on different RTL-SDR hardware** — V3, generic dongles, other tuners
-- **Sonos / Google Home audio examples**
-- **Non-US / Canadian Weatheradio adaptations** (different SAME codes, frequencies)
-- **Android notification optimization**
-
-I built this to scratch my own itch. I look forward to people far more skilled than me taking it somewhere I never could. Please open an issue before large PRs. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-## 📜 License
-
-MIT — free to use, modify, and share.
-
----
-
-## 🙏 Credits
-
-Built on the shoulders of the open-source community:
-
-- [multimon-ng](https://github.com/EliasOenal/multimon-ng) — SAME/EAS decoder  
-- [NWS Alerts API](https://www.weather.gov/documentation/services-web-api) — weather data  
-- [RTL-SDR](https://www.rtl-sdr.com/) — the hardware ecosystem  
-- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) — Lovelace UI  
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod) — CSS theming  
-- [NOAA Weather Radio](https://www.weather.gov/nwr/) — the national network this is built around
+For now, the split Pi architecture is the supported v2 path.

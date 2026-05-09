@@ -1,0 +1,21 @@
+/home/pi/logs/nwr/*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su pi pi
+}
+
+/home/pi/logs/mqtt/*.log {
+    daily
+    rotate 10
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su pi pi
+}

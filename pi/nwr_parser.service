@@ -1,6 +1,6 @@
 [Unit]
-Description=NOAA Weather Radio SAME Decoder / MQTT Publisher
-Documentation=https://github.com/YOUR_GITHUB_USERNAME/HA-NWR-SDR
+Description=NOAA Weather Radio SAME decoder and MQTT publisher
+Documentation=https://github.com/swise01/HA-NWR-SDR
 After=network-online.target
 Wants=network-online.target
 
@@ -8,12 +8,18 @@ Wants=network-online.target
 Type=simple
 User=pi
 Group=pi
-ExecStartPre=/bin/sleep 5
-ExecStart=/usr/bin/python3 /opt/nwr/nwr_parser.py
-Restart=on-failure
-RestartSec=15
+EnvironmentFile=/opt/nwr/config.env
+Environment=NWR_CONFIG=/opt/nwr/config.env
+ExecStartPre=/bin/sleep 3
+ExecStartPre=-/usr/bin/pkill -9 -x rtl_fm
+ExecStartPre=-/usr/bin/pkill -9 -x multimon-ng
+ExecStart=/opt/nwr_venv/bin/python3 /opt/nwr/nwr_parser.py
+Restart=always
+RestartSec=10
+TimeoutStopSec=20
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=nwr
 
 [Install]
 WantedBy=multi-user.target

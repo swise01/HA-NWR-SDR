@@ -4,7 +4,7 @@ First — thank you for being here.
 
 I built this to solve a real problem at my house: I wanted my home to know when a tornado warning was issued before I heard it on TV. It works, my family is safer for it, and I decided to share it.
 
-I am not a professional developer. I am someone who learns by doing, breaks things, fixes them, and keeps going. This project reflects that — the bones are solid, the dashboard needs work, and there are things a more experienced developer would have done differently. I know that, and I am genuinely excited to see where the community takes it.
+I am not a professional developer. I am someone who learns by doing, breaks things, fixes them, and keeps going. This project reflects that. I am genuinely excited to see where the community takes it.
 
 **If you are more skilled than me — please make this better. I mean that sincerely.**
 
@@ -12,13 +12,13 @@ I am not a professional developer. I am someone who learns by doing, breaks thin
 
 ## Where help is most needed
 
-- **Dashboard redesign** — the current Lovelace YAML works but it's rough. If you know Mushroom, card-mod, and layout-card well, it could be beautiful
 - **Screenshots** — I haven't added any to the README. If you get this running, a screenshot PR would help everyone who comes after you
 - **Testing on different hardware** — RTL-SDR V3, generic dongles, different Pi models, different antennas
-- **Audio improvements** — Sonos, Google Home, TTS optimization examples
+- **Automation examples** — notifications, audio playback, lights, alert panels, and alarm workflows built from the standard integration events
+- **Audio examples** — Sonos, Google Home, TTS, browser players, and other `media_player` targets
 - **Non-US adaptations** — Canadian Weatheradio uses similar SAME codes; other countries may have equivalents
-- **Android notification tuning** — iOS works well; Android has its own quirks with HA notifications
-- **HACS packaging** — making this installable as a proper HACS repository
+- **HACS polish** — icons, translations, diagnostics, repairs, and config flow improvements
+- **HAOS add-on** — direct SDR support for users who want the dongle plugged into the HAOS host
 
 ---
 

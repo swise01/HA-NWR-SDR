@@ -1,45 +1,56 @@
-# Audio Streaming (Path A — Self-Hosted)
+# Audio Streaming
 
-If you're running Path A (RTL-SDR + Raspberry Pi), the Pi can host a live NWR audio stream that any HA media player can play.
+The v2 Pi parser hosts a live MP3 stream of the tuned NOAA Weather Radio channel.
 
-## How it works
+Default URL:
 
-The `nwr_parser.py` script pipes `rtl_fm` audio through `ffmpeg`, which serves it as an MP3 stream on port 8765.
-
-```
-rtl_fm → ffmpeg (volume boost + MP3 encode) → HTTP stream at :8765
+```text
+http://<pi-ip>:8765/nwr.mp3
 ```
 
-## Stream URL
+The parser publishes this URL to MQTT:
 
+```text
+nwr/audio/url
 ```
-http://<your-pi-ip>:8765/nwr.mp3
+
+Home Assistant exposes it as:
+
+```text
+sensor.nwr_audio_url
 ```
 
-Example: `http://10.0.1.251:8765/nwr.mp3`
+The bridge package does not automatically play audio. That is intentional: users have different speakers, volume policies, household needs, and emergency workflows.
 
-## Using the stream in HA
+Example user automation:
 
-In the NWR Settings tab, enter the stream URL in the **Stream Player URL** field.
-Set your media player entity ID in the **Stream Player** field.
+```yaml
+trigger:
+  - platform: event
+    event_type: nwr_same_alert_received
+condition:
+  - condition: template
+    value_template: "{{ trigger.event.data.severity | int == 1 }}"
+action:
+  - service: media_player.play_media
+    target:
+      entity_id: media_player.your_speaker
+    data:
+      media_content_id: "{{ states('sensor.nwr_audio_url') }}"
+      media_content_type: music
+```
 
-HA will call `media_player.play_media` with the stream URL when an alert fires (if stream mode is enabled for that tier).
+## Firewall
 
-## Firewall note
+The Home Assistant host must be able to reach the Pi on the configured audio stream port, default `8765`.
 
-Port 8765 must be reachable from your HA instance to the Pi.
-If HA and the Pi are on the same LAN, no extra config is needed.
+## Tuning
 
-## Volume tuning
+The stream path uses a voice-focused filter chain in `pi/nwr_parser.py`.
 
-The default ffmpeg command applies a `+10dB` volume boost, which works well for most speakers.
-To adjust, edit the `VOLUME_BOOST` variable in `nwr_parser.py`.
+The SAME decode path is separate and runs two decoders:
 
-## Supported players
+- raw resampled audio
+- filtered audio
 
-Any HA media player that supports HTTP MP3 streams:
-- Alexa (Echo devices via Nabu Casa or local)
-- Google / Nest speakers
-- VLC via HA VLC add-on
-- Sonos (via HA Sonos integration)
-- Any browser-based player
+Keep both until logs show which one is more reliable for your local transmitter.

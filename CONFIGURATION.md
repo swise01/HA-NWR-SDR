@@ -1,132 +1,150 @@
 # Configuration Guide
 
-This document walks you through a complete installation of the NWR integration from zero.
+This guide covers the v2 Raspberry Pi plus MQTT setup.
 
----
+The Home Assistant package is a bridge layer. It creates common entities and fires Home Assistant events, but it does not assume you have specific speakers, phones, relays, sirens, or dashboards.
 
-## Prerequisites
+## Architecture
 
-- Home Assistant (2023.6 or newer recommended)
-- HACS installed ([hacs.xyz](https://hacs.xyz))
-- A Raspberry Pi (any model with USB)
-- An RTL-SDR dongle
-- An MQTT broker reachable from both the Pi and HA (Mosquitto add-on works great)
-
----
-
-## Step 1 — Find your NWR station
-
-Go to [NOAA's station finder](https://www.weather.gov/nwr/station_listing) and find your nearest station. Note:
-- **Station call sign** (e.g. WWF57, KIH54)
-- **Frequency** (e.g. 162.400 MHz)
-- **Counties covered**
-
----
-
-## Step 2 — Find your FIPS codes
-
-FIPS codes identify your counties in the SAME system.
-
-Format: `0` + 2-digit state code + 3-digit county code = **6 digits**
-
-Example lookup:
-```
-https://api.weather.gov/zones/county?state=AL
+```text
+RTL-SDR -> Raspberry Pi parser -> MQTT -> Home Assistant bridge package
 ```
 
-You need two things:
-1. **FIPS code** for the Pi parser filter (6-digit format above)
-2. **Zone ID** for the NWS REST API (e.g. `ALZ001` or `ALC073`)
+The future target is:
 
-You can find zone IDs from:
-```
-https://api.weather.gov/zones/county?state=XX   (replace XX with your 2-letter state)
+```text
+Pi parser or HAOS add-on -> same normalized event schema -> HACS integration -> same HA entities/events
 ```
 
----
+## 1. Find Your NWR Station
 
-## Step 3 — Set up the Raspberry Pi
+Use the NOAA station listing to find:
 
-### 3a — Install system dependencies
+- transmitter callsign
+- frequency
+- counties served
+
+Common NWR channels:
+
+| Channel | Frequency |
+|---|---:|
+| WX1 | 162.400 MHz |
+| WX2 | 162.425 MHz |
+| WX3 | 162.450 MHz |
+| WX4 | 162.475 MHz |
+| WX5 | 162.500 MHz |
+| WX6 | 162.525 MHz |
+| WX7 | 162.550 MHz |
+
+## 2. Find SAME/FIPS Codes
+
+The parser can filter SAME alerts by county code.
+
+Format:
+
+```text
+0 + 2 digit state FIPS + 3 digit county FIPS
+```
+
+Example:
+
+```text
+001073
+```
+
+Leave `FIPS_FILTER` empty if you want to publish every decoded SAME header.
+
+## 3. Find NWS Zone IDs
+
+The Home Assistant package can also poll the NWS Alerts API.
+
+Zone IDs look like:
+
+```text
+ALZ018
+ALZ030
+```
+
+Replace `YOUR_ZONE_1,YOUR_ZONE_2` in `homeassistant/packages/nwr.yaml`, or remove the `rest:` block if you only want radio/MQTT data.
+
+## 4. Install Pi Dependencies
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y rtl-sdr multimon-ng python3-pip git
-
-# Add your user to plugdev for RTL-SDR access
-sudo usermod -aG plugdev $USER
-
-# Blacklist the default DVB-T kernel module so rtl_sdr can claim the device
-echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
-sudo update-initramfs -u
+sudo apt-get install -y rtl-sdr multimon-ng ffmpeg python3-venv python3-pip mosquitto-clients logrotate
 ```
 
-Reboot after this step.
-
-### 3b — Test your RTL-SDR
+Prevent the Linux DVB driver from claiming the RTL-SDR:
 
 ```bash
-rtl_test -t
-# Should show your device. If permission denied, log out and back in.
-
-# Test reception on your NWR frequency (replace 162550000 with yours):
-rtl_fm -f 162550000 -M fm -s 22050 -r 22050 - | multimon-ng -t raw -a EAS -
-# Let it run during a weekly test (Wed ~11am local time usually) — you should see ZCZC lines
+echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
+sudo usermod -aG plugdev "$USER"
+sudo reboot
 ```
 
-### 3c — Install the parser
+## 5. Install the Parser
 
 ```bash
 sudo mkdir -p /opt/nwr
-sudo chown $USER:$USER /opt/nwr
+sudo chown "$USER:$USER" /opt/nwr
 
-# Clone the repo
-git clone https://github.com/swise01/HA-NWR-SDR.git /tmp/nwr-install
-cp /tmp/nwr-install/pi/nwr_parser.py /opt/nwr/
+python3 -m venv /opt/nwr_venv
+/opt/nwr_venv/bin/pip install -r pi/requirements.txt
 
-# Install Python dependency
-pip3 install paho-mqtt
+cp pi/nwr_parser.py pi/nwr-mqtt-audit.sh /opt/nwr/
+cp pi/config.env.example /opt/nwr/config.env
+chmod +x /opt/nwr/nwr_parser.py /opt/nwr/nwr-mqtt-audit.sh
 ```
 
-### 3d — Configure nwr_parser.py
+Edit `/opt/nwr/config.env`:
 
-Edit `/opt/nwr/nwr_parser.py` and update the `# ← EDIT THIS SECTION` block near the top:
+```env
+MQTT_HOST=homeassistant.local
+MQTT_PORT=1883
+MQTT_USER=mqtt
+MQTT_PASS=change-me
 
-```python
-MQTT_HOST       = "homeassistant.local"  # ← EDIT: your MQTT broker IP or hostname
-MQTT_PORT       = 1883
-MQTT_USER       = ""                     # ← EDIT: leave blank if no auth
-MQTT_PASSWORD   = ""                     # ← EDIT: leave blank if no auth
-
-FIPS_FILTER = [
-    # "0SSCCC",    # ← EDIT: add your county FIPS codes here
-]
+SDR_FREQUENCY=162.550M
+SDR_DEVICE_INDEX=0
+SDR_GAIN=49.6
+FIPS_FILTER=
 ```
 
-> **Note:** You do NOT set a frequency here. The active WX channel is controlled from your HA dashboard — when you change the channel selector, HA sends the new frequency to the parser via MQTT and it restarts the SDR pipeline automatically. The default startup channel is WX7 (162.550 MHz) and can be changed from the Settings tab in the dashboard.
+For RTL-SDR Blog V4 or serial-numbered dongles, `SDR_DEVICE_INDEX` may be a serial such as `SDRNWR01`.
 
-### 3e — Install and start the service
+## 6. Install Services
 
 ```bash
-sudo cp /tmp/nwr-install/pi/nwr_parser.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable nwr_parser.service
-sudo systemctl start nwr_parser.service
+sudo cp pi/nwr_parser.service /etc/systemd/system/nwr.service
+sudo cp pi/nwr-mqtt-audit.service /etc/systemd/system/
+sudo cp pi/logrotate-nwr /etc/logrotate.d/nwr
 
-# Check it's running
-sudo systemctl status nwr_parser.service
-journalctl -u nwr_parser -f
+sudo systemctl daemon-reload
+sudo systemctl enable --now nwr.service nwr-mqtt-audit.service
 ```
 
-You should see `MQTT connected` in the logs and `nwr/status` → `running` in your MQTT broker.
+Check status:
 
----
+```bash
+systemctl status nwr.service nwr-mqtt-audit.service
+journalctl -u nwr.service -f
+```
 
-## Step 4 — Home Assistant Package
+## 7. Install Home Assistant Package
 
-### 4a — Enable packages
+Copy:
 
-In `configuration.yaml`:
+```text
+homeassistant/packages/nwr.yaml
+```
+
+to:
+
+```text
+/config/packages/nwr.yaml
+```
+
+Enable packages in `configuration.yaml` if needed:
 
 ```yaml
 homeassistant:
@@ -134,99 +152,60 @@ homeassistant:
     nwr: !include packages/nwr.yaml
 ```
 
-### 4b — Copy the package file
+Restart Home Assistant.
 
-```bash
-cp homeassistant/packages/nwr.yaml /config/packages/nwr.yaml
+## 8. Build User Automations
+
+The package fires these events:
+
+```text
+nwr_same_alert_received
+nwr_eom_received
+nwr_alert_expired
 ```
 
-### 4c — Edit the package
+Example automation trigger:
 
-Open `/config/packages/nwr.yaml` and find all `# ← EDIT` comments. There are about 10 of them:
-
-| Placeholder | Replace with |
-|---|---|
-| `YOUR_ZONE_1` | Your first NWS zone ID (e.g. `ALZ009`) |
-| `YOUR_ZONE_2` | Your second NWS zone ID (e.g. `ALZ073`) |
-| `notify.YOUR_SERVICE` | Your HA notify service (e.g. `notify.mobile_app_my_phone`) |
-| `media_player.YOUR_PLAYER` | Your TTS media player entity |
-| `switch.YOUR_SAFETY_RELAY` | Your relay/switch entity for Tier 1 (or remove that automation) |
-
-### 4d — Restart Home Assistant
-
-Check **Settings → System → Logs** for any errors after restart. All `nwr_*` entities should appear.
-
----
-
-## Step 5 — Dashboard
-
-### 5a — Install HACS cards
-
-Via HACS → Frontend:
-1. Search `Mushroom` → Install
-2. Search `card-mod` → Install
-3. Restart HA / clear browser cache
-
-### 5b — Add the dashboard
-
-1. Go to **Settings → Dashboards → Add Dashboard**
-2. Give it a name (e.g. "NWR Weather Radio")
-3. Open the new dashboard → 3-dot menu → **Edit → Raw configuration editor**
-4. Paste the contents of `dashboard/nwr_alerts.yaml`
-5. Find the `# ← EDIT` comments at the top of the file and fill in your station name, city, and county names
-6. Save
-
-> **Heads up:** The dashboard is a functional starter — it works and shows everything you need, but it's not polished. It was built by someone who knows weather radio, not someone who knows Lovelace. PRs to improve it are very welcome.
-
----
-
-## Step 6 — Optional: Audio Streaming
-
-The parser includes a built-in audio stream — `rtl_fm` is piped through `ffmpeg` with a volume boost and served as an MP3 stream on port 8765. No extra software needed.
-
-Stream URL: `http://YOUR_PI_IP:8765/nwr.mp3`
-
-In the HA Settings tab, enter this URL in the **Stream Player URL** field and set your media player entity. HA will play the stream to your speaker when an alert fires.
-
-See [docs/audio_streaming.md](docs/audio_streaming.md) for tuning and player examples.
-
----
-
-## Verification Checklist
-
-- [ ] `sensor.nwr_parser_status_display` shows `running`
-- [ ] `sensor.nwr_heartbeat` updates every 60 seconds
-- [ ] `sensor.nws_active_alert_count` shows a number (not unavailable)
-- [ ] MQTT topics `nwr/status`, `nwr/heartbeat` visible in MQTT explorer
-- [ ] Dashboard loads without "entity not found" errors
-- [ ] Weekly test (typically Wednesday ~11am local) triggers alert stack
-
----
-
-## Troubleshooting
-
-**Parser won't start / RTL device not found**
-```bash
-lsusb | grep RTL
-rtl_test -t
-# If "No supported devices found": check USB connection, try different port
+```yaml
+trigger:
+  - platform: event
+    event_type: nwr_same_alert_received
+condition:
+  - condition: template
+    value_template: "{{ trigger.event.data.severity | int <= 2 }}"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "NWR {{ trigger.event.data.event_name }}"
+      message: "{{ trigger.event.data.county_codes }}"
 ```
 
-**MQTT connection refused**
-- Verify MQTT broker is running: `sudo systemctl status mosquitto`
-- Check firewall: `sudo ufw allow 1883`
-- Verify credentials match what's in the package and parser
+Users can choose their own phones, speakers, relays, lights, alarms, or dashboards without editing the parser.
 
-**NWS REST sensors unavailable**
-- Verify zone IDs: `curl "https://api.weather.gov/alerts/active?zone=YOUR_ZONE"`
-- Check HA logs for REST sensor errors
+## 9. Debugging Weekly Tests
 
-**Dashboard cards not rendering**
-- Confirm Mushroom and card-mod are installed via HACS
-- Clear browser cache after installing HACS cards
-- Check browser console for JS errors
+The parser keeps durable logs because weekly tests are hard to chase live:
 
-**No SAME alerts decoding**
-- Run multimon-ng manually and listen during a test broadcast
-- Verify frequency and PPM correction
-- Check antenna connection — a bad antenna = no decodes
+```bash
+tail -f /home/$USER/logs/nwr/parser.log
+tail -f /home/$USER/logs/mqtt/pi-mqtt.log
+```
+
+Interpretation:
+
+- `multimon[raw]: ... ZCZC...` means the raw decoder caught the SAME header.
+- `multimon[filtered]: ... ZCZC...` means the filtered decoder caught the SAME header.
+- EOM only means the decoder caught the end marker but missed the header.
+- `nwr/alert/same` in the MQTT audit means Home Assistant should have received an alert event.
+
+## SDR Tuning Notes
+
+Do not assume maximum gain is best. Too much gain can overload the receiver.
+
+Recommended tuning process:
+
+1. Start with a known working NWR frequency.
+2. Confirm voice audio is clean.
+3. Try a gain sweep around 20, 30, 40, and 49.6.
+4. Compare raw vs filtered decoder logs during weekly tests.
+5. Adjust antenna placement before adding more DSP complexity.
