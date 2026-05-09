@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -26,48 +26,66 @@ from .const import (
 
 
 @dataclass(frozen=True)
-class SensorDescription:
+class NwrSensorDescription(SensorEntityDescription):
     """NWR sensor description."""
 
-    key: str
-    name: str
     value_fn: Callable[[NwrSdrRuntime], Any]
 
 
 SENSORS = (
-    SensorDescription("parser_status", "NWR Parser Status", lambda rt: rt.parser_status),
-    SensorDescription("audio_url", "NWR Audio URL", lambda rt: rt.audio_url),
-    SensorDescription(
-        "event_code", "NWR Event Code", lambda rt: rt.alert.get(ATTR_EVENT_CODE)
+    NwrSensorDescription(
+        key="parser_status",
+        name="NWR Parser Status",
+        value_fn=lambda rt: rt.parser_status,
     ),
-    SensorDescription(
-        "event_name", "NWR Event Name", lambda rt: rt.alert.get(ATTR_EVENT_NAME)
+    NwrSensorDescription(
+        key="audio_url",
+        name="NWR Audio URL",
+        value_fn=lambda rt: rt.audio_url,
     ),
-    SensorDescription(
-        "severity", "NWR SAME Severity", lambda rt: rt.alert.get(ATTR_SEVERITY)
+    NwrSensorDescription(
+        key="event_code",
+        name="NWR Event Code",
+        value_fn=lambda rt: rt.alert.get(ATTR_EVENT_CODE),
     ),
-    SensorDescription(
-        "severity_label",
-        "NWR SAME Severity Label",
-        lambda rt: rt.alert.get(ATTR_SEVERITY_LABEL),
+    NwrSensorDescription(
+        key="event_name",
+        name="NWR Event Name",
+        value_fn=lambda rt: rt.alert.get(ATTR_EVENT_NAME),
     ),
-    SensorDescription(
-        "effective_severity",
-        "NWR Effective Severity",
-        lambda rt: rt.alert.get(ATTR_EFFECTIVE_SEVERITY),
+    NwrSensorDescription(
+        key="severity",
+        name="NWR SAME Severity",
+        value_fn=lambda rt: rt.alert.get(ATTR_SEVERITY),
     ),
-    SensorDescription(
-        "effective_severity_label",
-        "NWR Effective Severity Label",
-        lambda rt: rt.alert.get(ATTR_EFFECTIVE_SEVERITY_LABEL),
+    NwrSensorDescription(
+        key="severity_label",
+        name="NWR SAME Severity Label",
+        value_fn=lambda rt: rt.alert.get(ATTR_SEVERITY_LABEL),
     ),
-    SensorDescription(
-        "county_codes", "NWR County Codes", lambda rt: rt.alert.get(ATTR_COUNTY_CODES)
+    NwrSensorDescription(
+        key="effective_severity",
+        name="NWR Effective Severity",
+        value_fn=lambda rt: rt.alert.get(ATTR_EFFECTIVE_SEVERITY),
     ),
-    SensorDescription(
-        "expires", "NWR Alert Expires", lambda rt: rt.alert.get(ATTR_EXPIRY_UTC)
+    NwrSensorDescription(
+        key="effective_severity_label",
+        name="NWR Effective Severity Label",
+        value_fn=lambda rt: rt.alert.get(ATTR_EFFECTIVE_SEVERITY_LABEL),
     ),
-    SensorDescription("eom_utc", "NWR EOM Received", lambda rt: rt.eom_utc),
+    NwrSensorDescription(
+        key="county_codes",
+        name="NWR County Codes",
+        value_fn=lambda rt: rt.alert.get(ATTR_COUNTY_CODES),
+    ),
+    NwrSensorDescription(
+        key="expires",
+        name="NWR Alert Expires",
+        value_fn=lambda rt: rt.alert.get(ATTR_EXPIRY_UTC),
+    ),
+    NwrSensorDescription(
+        key="eom_utc", name="NWR EOM Received", value_fn=lambda rt: rt.eom_utc
+    ),
 )
 
 
@@ -87,7 +105,7 @@ class NwrSensor(SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(
-        self, runtime: NwrSdrRuntime, description: SensorDescription
+        self, runtime: NwrSdrRuntime, description: NwrSensorDescription
     ) -> None:
         self._runtime = runtime
         self.entity_description = description
