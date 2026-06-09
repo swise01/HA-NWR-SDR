@@ -68,4 +68,3 @@ schema:
   wled_stop_bar_start_led: int(86,140)
   wled_stop_bar_end_led: int(86,140)
   wled_reverse_brake_side_leds: int(1,20)
-watchdog: true
