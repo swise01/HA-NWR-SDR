@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.bin
+sessions/
+raw/
+logs/
+.DS_Store
+simtelemetry.config.json
+data/*
+# Reference data files live in data/ but are tracked.
+# Runtime subdirs (data/sessions/, data/raw/, data/logs/) are still
+# caught by the sessions/, raw/, logs/ rules above.
+!data/README.md
+!data/fm8_*.csv
+CLAUDE.md
+.claude/

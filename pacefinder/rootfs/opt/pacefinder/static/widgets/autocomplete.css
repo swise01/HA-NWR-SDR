@@ -1,0 +1,17 @@
+/* Autocomplete widget — see static/js/widgets/autocomplete.js */
+.ac-wrap{position:relative;display:block}
+.ac-wrap .ac-input{padding-right:28px}  /* room for the caret */
+.ac-caret{position:absolute;top:50%;right:6px;transform:translateY(-50%);background:none;border:0;color:var(--color-text-muted);font-size:.75rem;line-height:1;padding:4px 6px;cursor:pointer;border-radius:3px}
+.ac-caret:hover{color:var(--color-text-primary);background:rgba(255,255,255,.04)}
+.ac-panel{
+  position:absolute;left:0;right:0;top:calc(100% + 2px);
+  max-height:240px;overflow-y:auto;
+  background:var(--color-surface,#1a1a1a);
+  border:1px solid var(--color-border,#2a2a2a);
+  border-radius:var(--radius-sm,4px);
+  z-index:300;  /* above modal backdrops (.edit-ovl uses z-index: 200) */
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.ac-opt{padding:7px 10px;font-size:var(--text-sm,.85rem);color:var(--color-text-primary);cursor:pointer;line-height:1.3}
+.ac-opt:hover,.ac-opt.on{background:var(--color-surface-2,#252525);color:var(--color-text-primary)}
+.ac-empty{padding:8px 10px;font-size:var(--text-xs,.75rem);color:var(--color-text-muted);font-style:italic}

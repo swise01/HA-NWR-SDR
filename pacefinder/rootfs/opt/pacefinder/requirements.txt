@@ -1,0 +1,2 @@
+# No external dependencies — stdlib only (Python 3.9+)
+# asyncio, json, logging, os, struct, time, datetime, pathlib are all stdlib

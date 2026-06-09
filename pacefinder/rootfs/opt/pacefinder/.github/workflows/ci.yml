@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-import:
+    name: Python import smoke
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Import every module
+        run: |
+          # Exercises the full import graph from listener.py, the entry point.
+          # Catches missing imports, syntax errors, and circular-import bugs
+          # the same way we've been smoke-testing locally after every change.
+          python3 -c "import listener; print('listener imports OK')"
+          python3 -c "import replay; print('replay imports OK')"
+      - name: Helper module smoke
+        run: |
+          python3 -c "from db.store import compute_lap_aggregates, _encode_samples, _decode_samples"
+          python3 -c "from session.manager import _interp_dist_to_t"
+          python3 -c "from net.perf import _TimedLock, _perf_ctx"
+
+  js-syntax:
+    name: JS syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax-check every .js file
+        run: |
+          # node --check parses without executing — catches syntax errors,
+          # unterminated template literals, etc.
+          set -euo pipefail
+          # xargs -P1 so any node --check failure fails the job (a piped
+          # while-loop swallows the exit code in subshells).
+          find static -name '*.js' -type f -print0 \
+            | xargs -0 -n1 -P1 sh -c 'echo "checking $0" && node --check "$0"'

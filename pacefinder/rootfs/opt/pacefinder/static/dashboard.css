@@ -1,0 +1,439 @@
+/* Live dashboard — cosmetic-only reskin to match static/live-mock.html
+   Per docs/specs/live-dashboard-reskin.md: this file is the only CSS
+   change in the reskin PR. HTML structure and JS DOM-write paths are
+   preserved exactly. Every existing class name from the previous
+   dashboard.css is honoured. */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;max-width:100vw}
+body{
+  background:var(--color-bg);
+  color:var(--color-text-primary);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;
+  display:flex;flex-direction:column;
+  width:100dvw;height:100dvh;
+  overflow:hidden;overflow-x:hidden;
+  user-select:none;
+}
+
+/* ── topbar ─────────────────────────────────────────────────────── */
+.tb{
+  flex:none;height:50px;
+  display:flex;align-items:center;
+  padding:0 var(--space-4);gap:14px;
+  border-bottom:1px solid var(--color-border);
+  overflow-x:auto;
+}
+.dot{
+  width:10px;height:10px;min-width:10px;min-height:10px;
+  border-radius:50%;flex:none;background:#555;
+}
+.dot.receiving{
+  background:var(--color-red);
+  box-shadow:0 0 8px var(--color-red);
+  animation:pulse 1.4s ease-in-out infinite;
+}
+.dot.race_ended{background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.tb-stat{
+  font-size:var(--text-xs);
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--color-text-tertiary);
+  white-space:nowrap;min-width:64px;font-weight:500;
+}
+.tb-stat.receiving{color:var(--color-red)}
+.tb-stat.race_ended{color:var(--color-accent)}
+.tb-meta{display:flex;align-items:center;gap:12px;flex:1;overflow:hidden}
+.tb-game{
+  font-size:10px;font-weight:700;
+  letter-spacing:0.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:4px;
+  border:1px solid;white-space:nowrap;
+}
+.tb-game.game-forza{color:#3b82f6;border-color:#3b82f660;background:#3b82f60c}
+.tb-game.game-acc{color:#a78bfa;border-color:#a78bfa60;background:#a78bfa0c}
+.tb-game.game-f1{color:#ef4444;border-color:#ef444460;background:#ef44440c}
+.tb-game.game-none{color:var(--color-text-quaternary);border-color:var(--color-border);background:none}
+.tb-sep{color:var(--color-text-quaternary);font-size:11px}
+.tb-track{
+  font-size:var(--text-sm);color:var(--color-text-primary);
+  font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tb-car{
+  font-size:var(--text-sm);color:var(--color-text-secondary);
+  font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:24ch;
+}
+.tb-pi{font-size:11px;color:var(--color-text-tertiary);font-weight:400}
+.tb-drs{color:var(--color-accent);font-weight:700;display:none;letter-spacing:0.1em;font-size:11px}
+.tb-cmp{color:var(--color-text-tertiary);font-size:11px}
+
+/* Class badge — palette identical to sibling pages */
+.cc{font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;letter-spacing:.05em}
+.cc-X{background:#ef444415;color:#ef4444;border:1px solid #ef444440}
+.cc-S2{background:#a855f715;color:#a855f7;border:1px solid #a855f740}
+.cc-S1{background:#f59e0b15;color:#f59e0b;border:1px solid #f59e0b40}
+.cc-A{background:#3b82f615;color:#3b82f6;border:1px solid #3b82f640}
+.cc-B{background:#22c55e15;color:#22c55e;border:1px solid #22c55e40}
+.cc-C{background:#64748b15;color:#94a3b8;border:1px solid #64748b40}
+.cc-D{background:#33333350;color:#888;border:1px solid #44444460}
+.cc-E{background:#22222250;color:#6b7280;border:1px solid #33333360}
+.cc-S{background:#ec489915;color:#ec4899;border:1px solid #ec489940}
+.cc-R{background:#06b6d415;color:#06b6d4;border:1px solid #06b6d440}
+.cc-P{background:#8b5cf615;color:#8b5cf6;border:1px solid #8b5cf640}
+
+.tb-nav{display:flex;gap:4px;flex:none}
+.tb-nav a{
+  font-size:11px;color:var(--color-text-tertiary);text-decoration:none;
+  letter-spacing:0.08em;text-transform:uppercase;
+  padding:6px 10px;border-radius:4px;
+  transition:color 120ms, background 120ms;
+}
+.tb-nav a:hover{color:var(--color-text-primary);background:var(--color-surface)}
+.tb-nav a.cur{
+  color:var(--color-text-primary);
+  background:var(--color-surface);
+  box-shadow:inset 0 -2px 0 var(--color-accent);
+  border-bottom:none;
+}
+
+/* ── layout ─────────────────────────────────────────────────────── */
+.main{flex:1;display:grid;grid-template-rows:1fr;min-height:0;overflow:hidden;padding:10px}
+
+/* ── flash (lap-event flash on UI elements) ─────────────────────── */
+@keyframes flash-red{0%{box-shadow:inset 0 0 0 2px rgba(239,68,68,0.8);background-color:rgba(239,68,68,0.15)}60%{box-shadow:inset 0 0 0 2px rgba(239,68,68,0.33);background-color:rgba(239,68,68,0.07)}100%{box-shadow:inset 0 0 0 2px transparent;background-color:transparent}}
+.flash{animation:flash-red .35s ease-out forwards}
+
+/* ── MAIN PANELS: 4 columns ─────────────────────────────────────── */
+.panels{
+  display:grid;
+  grid-template-columns:1.1fr 1fr 1.1fr 1.3fr;
+  gap:8px;
+  min-height:0;
+  overflow:hidden;
+}
+.panel-col{
+  display:flex;flex-direction:column;
+  padding:14px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
+  min-width:0;overflow:hidden;
+}
+.p-lbl{
+  font-size:10px;color:var(--color-text-tertiary);
+  text-transform:uppercase;letter-spacing:0.08em;
+  margin-bottom:12px;flex:none;font-weight:500;
+}
+
+/* ── vertical bars (throttle / brake) ───────────────────────────── */
+.vbar-wrap{
+  flex:1;
+  background:var(--color-bg);
+  border:1px solid var(--color-border-subtle);
+  border-radius:var(--radius-sm);
+  position:relative;overflow:hidden;min-height:0;
+}
+.vbar-fill{
+  position:absolute;bottom:0;left:0;right:0;
+  height:0%;border-radius:0;
+  transition:height .04s linear;
+}
+/* Big value pinned to the bottom of each bar */
+.p-num.in-bar,.slip-num.in-bar{
+  position:absolute;left:0;right:0;bottom:8px;
+  color:var(--color-text-primary);
+  text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 6px rgba(0,0,0,.5);
+  z-index:2;pointer-events:none;
+  font-size:clamp(28px,3.4vw,52px);
+  font-weight:700;line-height:1;
+  letter-spacing:-0.02em;
+  text-align:center;
+}
+.thr-fill{background:#d8d8d8}
+.brk-fill{background:var(--color-red)}
+
+/* Throttle/RPM combo cell */
+.thr-rpm-row{display:flex;flex:1;gap:8px;min-height:0}
+.thr-col,.rpm-col{flex:1;display:flex;flex-direction:column;min-height:0}
+.rpm-pct-inline{font-size:11px;color:var(--color-text-quaternary);font-weight:400;letter-spacing:0;margin-left:6px;text-transform:none}
+
+/* RPM bar — green/amber/red zones via .rpm-vfill.lo/.mid/.hi/.shift */
+.rpm-vfill.lo{background:#0f2a18}
+.rpm-vfill.mid{background:#1d4a25}
+.rpm-vfill.hi{background:var(--color-accent)}
+.rpm-vfill.shift{background:var(--color-red);animation:sf .1s infinite}
+@keyframes sf{0%,100%{box-shadow:inset 0 0 20px rgba(239,0,0,0.4)}50%{box-shadow:inset 0 0 40px #ff440099}}
+.p-num{font-size:clamp(28px,3.4vw,52px);font-weight:700;text-align:center;flex:none;line-height:1;letter-spacing:-0.02em}
+
+/* ── slip column ────────────────────────────────────────────────── */
+.slip-bars{flex:1;display:flex;gap:8px;min-height:0}
+.slip-bar-col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.slip-bar-lbl{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.08em;text-align:center;margin-bottom:6px;flex:none;font-weight:500}
+.slip-num{
+  font-size:clamp(28px,3.4vw,52px);
+  font-weight:700;text-align:center;flex:none;
+  line-height:1;transition:color .1s;
+  margin-top:0;overflow:hidden;white-space:nowrap;width:100%;
+  letter-spacing:-0.02em;
+}
+
+/* ── timing column ──────────────────────────────────────────────── */
+.t-lbl{
+  font-size:10px;color:var(--color-text-tertiary);
+  text-transform:uppercase;letter-spacing:0.08em;
+  margin-bottom:2px;font-weight:500;
+}
+.t-val{
+  font-size:clamp(22px,1.9vw,28px);
+  font-weight:700;color:var(--color-text-primary);
+  letter-spacing:-0.01em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.t-val.green{color:var(--color-green)}
+/* Record sub-label under a t-val — track PB or best finish ever.
+   Static context for the live numbers; doesn't compete with them. */
+.t-rec{
+  font-size:10px;color:var(--color-text-quaternary);
+  font-variant-numeric:tabular-nums;
+  margin-top:2px;letter-spacing:0.04em;
+}
+.t-rec span{color:var(--color-text-tertiary);font-weight:500}
+.timing-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:10px var(--space-2);
+  flex:none;
+  margin-bottom:10px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--color-border-subtle);
+}
+.timing-grid:last-of-type{border-bottom:none;padding-bottom:0;margin-bottom:0}
+.t-delta-row{padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--color-border-subtle)}
+.delta-val{
+  font-size:clamp(22px,1.9vw,28px);
+  font-weight:700;letter-spacing:-0.01em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.delta-val.ahead{color:var(--color-green)}
+.delta-val.behind{color:var(--color-red)}
+.delta-val.even{color:var(--color-text-secondary)}
+
+.tyre-inline-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px var(--space-2)}
+.tyre-inline-cell{display:flex;flex-direction:column}
+.tyre-inline-lbl{
+  font-size:9px;color:var(--color-text-quaternary);
+  text-transform:uppercase;letter-spacing:0.08em;
+  margin-bottom:2px;
+}
+.tyre-temp{
+  font-size:clamp(20px,1.7vw,26px);
+  font-weight:600;
+  transition:color .2s;letter-spacing:-0.01em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.tyre-temp.cold{color:var(--color-blue)}
+.tyre-temp.ok  {color:var(--color-green)}
+.tyre-temp.hot {color:var(--color-amber)}
+.tyre-temp.over{color:var(--color-red)}
+.tyre-temp.na  {color:var(--color-text-quaternary)}
+
+/* Gear + Speed at the bottom of the timing column */
+.gs-row{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:var(--space-2);
+  margin-top:12px;padding-top:10px;
+  border-top:1px solid var(--color-border-subtle);
+}
+.gs-cell{display:flex;flex-direction:column;align-items:flex-start}
+.gear-val{
+  font-size:clamp(36px,3vw,48px);
+  font-weight:800;color:var(--color-text-primary);
+  line-height:1;letter-spacing:-0.02em;
+}
+.gear-val.N{color:var(--color-text-tertiary)}
+.gear-val.R{color:#7a222288}
+.speed-val{
+  font-size:clamp(36px,3vw,48px);
+  font-weight:800;color:var(--color-text-primary);
+  line-height:1;letter-spacing:-0.02em;
+  white-space:nowrap;
+}
+.speed-unit{
+  font-size:0.4em;color:var(--color-text-tertiary);
+  text-transform:uppercase;letter-spacing:0.05em;font-weight:500;
+}
+
+/* ── bottom status bar ──────────────────────────────────────────── */
+.bot{
+  flex:none;height:34px;
+  display:flex;align-items:center;
+  padding:6px 14px;gap:18px;
+  overflow-x:auto;
+  background:var(--color-surface);
+  border-top:1px solid var(--color-border);
+  margin:0 10px 10px;
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-sm);
+}
+.udp-strip{
+  flex:1;font-size:10px;color:var(--color-text-quaternary);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  letter-spacing:0.04em;
+}
+.bot-btn{
+  background:transparent;
+  border:1px solid var(--color-border);
+  color:var(--color-text-tertiary);
+  font-family:inherit;font-size:10px;
+  padding:3px 9px;border-radius:4px;
+  cursor:pointer;text-transform:uppercase;letter-spacing:0.08em;
+}
+.bot-btn:hover{color:var(--color-text-primary);border-color:var(--color-text-secondary)}
+.bot-btn.on{color:var(--color-accent);border-color:var(--color-accent)}
+
+/* finish race button */
+.bot-finish{
+  background:var(--color-green);color:var(--color-bg);
+  border:none;font-family:inherit;font-size:11px;font-weight:700;
+  padding:5px 14px;border-radius:4px;
+  cursor:pointer;letter-spacing:0.05em;text-transform:uppercase;
+  display:none;
+}
+.bot-finish:hover{background:#16a34a}
+
+/* ── debug overlay ──────────────────────────────────────────────── */
+#dbg{
+  position:fixed;bottom:48px;left:10px;right:10px;height:220px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
+  z-index:50;display:none;flex-direction:column;
+}
+#dbg .dh{
+  flex:none;display:flex;justify-content:space-between;align-items:center;
+  padding:8px var(--space-3);
+  border-bottom:1px solid var(--color-border-subtle);
+}
+#dbg .dh span{
+  font-size:10px;color:var(--color-text-tertiary);
+  text-transform:uppercase;letter-spacing:0.08em;
+}
+#dbg-log{
+  flex:1;overflow-y:auto;font-size:11px;
+  padding:8px var(--space-3);line-height:1.6;
+  font-family:var(--font-mono);
+}
+
+/* ── finish overlay (post-race modal) ───────────────────────────── */
+#fo{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.85);
+  z-index:100;display:none;
+  align-items:center;justify-content:center;
+}
+#fo.open{display:flex}
+.fo-box{
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
+  width:min(560px,95vw);max-height:90vh;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.fo-head{padding:18px var(--space-6) 14px;border-bottom:1px solid var(--color-border-subtle)}
+.fo-title-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.fo-title{
+  font-size:var(--text-lg);font-weight:700;
+  color:var(--color-text-primary);letter-spacing:-0.02em;
+}
+.fo-sub{font-size:var(--text-sm);color:var(--color-text-secondary)}
+.fo-stats{display:flex;gap:var(--space-4);margin-top:10px}
+.fo-stat-item{flex:1}
+.fo-stat-v{font-size:var(--text-lg);font-weight:700;color:var(--color-text-primary);letter-spacing:-0.01em}
+.fo-stat-l{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px}
+.fo-body{flex:1;overflow-y:auto;padding:18px var(--space-6)}
+.fo-section{margin-bottom:18px}
+.fo-lbl{
+  font-size:10px;color:var(--color-text-tertiary);
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;
+}
+.type-chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.type-chip{
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  color:var(--color-text-secondary);
+  font-family:inherit;font-size:var(--text-sm);
+  padding:6px 14px;border-radius:999px;
+  cursor:pointer;letter-spacing:0.05em;
+  transition:border-color .12s, color .12s, background .12s;
+}
+.type-chip:hover{border-color:var(--color-text-secondary);color:#ccc}
+.type-chip.sel{
+  background:rgba(232,184,75,0.08);
+  border-color:var(--color-accent);
+  color:var(--color-accent);
+}
+.fo-lap-list{display:flex;flex-direction:column;gap:4px}
+.fo-lap{
+  display:flex;align-items:center;gap:var(--space-3);
+  padding:8px 10px;border-radius:var(--radius-sm);
+  background:var(--color-bg);
+  border:1px solid var(--color-border-subtle);
+}
+.fo-lap.partial{border-color:rgba(251,191,36,0.4);background:rgba(251,191,36,0.04)}
+.fo-lap-num{font-size:11px;color:var(--color-text-tertiary);width:32px}
+.fo-lap-time{font-size:var(--text-md);font-weight:600;color:var(--color-text-primary);flex:1;font-variant-numeric:tabular-nums}
+.fo-lap-time.best{color:var(--color-green)}
+.fo-lap-badge{font-size:10px;color:var(--color-amber);letter-spacing:0.05em;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);padding:2px 7px;border-radius:10px}
+.fo-lap-del{background:none;border:1px solid rgba(239,68,68,0.3);color:var(--color-red);font-family:inherit;font-size:11px;padding:3px 9px;border-radius:var(--radius-sm);cursor:pointer}
+.fo-lap-del:hover{background:rgba(239,68,68,0.08)}
+.fo-lap-del.undone{border-color:rgba(74,222,128,0.4);color:var(--color-green)}
+.fo-foot{padding:14px var(--space-6);border-top:1px solid var(--color-border-subtle);display:flex;gap:10px;justify-content:flex-end}
+.fo-save{
+  background:var(--color-green);color:var(--color-bg);
+  border:none;font-family:inherit;
+  font-size:var(--text-md);font-weight:700;
+  padding:9px 24px;border-radius:var(--radius-sm);
+  cursor:pointer;letter-spacing:0.05em;
+}
+.fo-save:hover{background:#16a34a}
+.fo-skip{
+  background:none;border:1px solid var(--color-border);
+  color:var(--color-text-secondary);
+  font-family:inherit;font-size:var(--text-sm);
+  padding:8px 18px;border-radius:var(--radius-sm);
+  cursor:pointer;
+}
+.fo-skip:hover{border-color:var(--color-text-secondary);color:#ccc}
+.fo-input{
+  width:100%;
+  background:var(--color-bg);
+  border:1px solid var(--color-border);
+  color:var(--color-text-primary);
+  font-family:inherit;font-size:var(--text-sm);
+  padding:8px 12px;border-radius:var(--radius-sm);
+  transition:border-color .12s;
+}
+.fo-input:focus{outline:none;border-color:var(--color-text-secondary)}
+select.fo-input{cursor:pointer}
+.game-badge{
+  font-size:10px;background:rgba(232,184,75,0.08);
+  border:1px solid rgba(232,184,75,0.3);
+  color:var(--color-accent);padding:1px 7px;border-radius:3px;
+  letter-spacing:0.05em;text-transform:uppercase;
+  margin-left:8px;vertical-align:middle;
+}
+
+/* ── Phone layout ───────────────────────────────────────────────── */
+@media (max-width: 1100px){
+  .panels{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+}
+@media (max-width: 600px){
+  .panels{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+}
+@media (max-width: 480px){
+  .panel-col:nth-child(3),.panel-col:nth-child(4){display:none}
+  .panel-col:last-child{grid-column:1 / -1}
+  .tyre-temp{display:none}
+  .tyre-inline-grid{display:none}
+}

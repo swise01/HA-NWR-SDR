@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Telemetry · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  .page { max-width: 1280px; margin: 0 auto; padding: var(--space-4); }
+  a { color: inherit; text-decoration: none; }
+
+  /* ─── Top bar ───────────────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand {
+    font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+  }
+  .brand .dot { color: var(--color-accent); }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: 999px;
+    font-size: 11px; color: var(--color-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+  .topbar .spacer { flex: 1; }
+  .top-nav { display: inline-flex; gap: var(--space-3); }
+  .top-nav a {
+    font-size: var(--text-sm); color: var(--color-text-secondary);
+    padding: 6px 10px; border-radius: 6px;
+  }
+  .top-nav a:hover { color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Breadcrumb + title row ────────────────────────────────────── */
+  .crumb {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: var(--space-2) 0;
+  }
+  .crumb:hover { color: var(--color-text-primary); }
+
+  /* ─── Subnav (views of this session) ────────────────────────────── */
+  .subnav {
+    display: flex; align-items: center; gap: 2px;
+    padding: 4px 0 var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .subnav-item {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    transition: color 120ms, background 120ms;
+  }
+  .subnav-item:hover { color: var(--color-text-primary); background: var(--color-surface); }
+  .subnav-item.active {
+    color: var(--color-text-primary);
+    background: var(--color-surface);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+  }
+  /* ─── Page head: H1 (track) + H2 (car link) ─────────────────────── */
+  .page-head { padding: var(--space-4) 0 var(--space-3); }
+  .page-h1 {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+  }
+  .page-h2 {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 10px;
+    font-size: clamp(18px, 2.4vw, 22px);
+    font-weight: 500;
+    color: var(--color-text-secondary); text-decoration: none;
+    transition: color 120ms;
+  }
+  .page-h2:hover { color: var(--color-text-primary); }
+  .page-h2-arrow { color: var(--color-text-quaternary); font-size: 16px; transition: color 120ms, transform 120ms; }
+  .page-h2:hover .page-h2-arrow { color: var(--color-text-primary); transform: translateX(3px); }
+  .page-h2 .class-badge {
+    display: inline-block; padding: 2px 7px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .page-h2 .pi { color: var(--color-text-tertiary); font-size: 14px; font-weight: 400; }
+
+  /* ─── Metadata strip (When / Cond / Type / toolbar) ─────────────── */
+  .strip {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+  .pill .label { color: var(--color-text-quaternary); text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
+  .pill .val { color: var(--color-text-primary); }
+  .pill.type-practice { border-color: #2a3a4a; color: var(--color-blue); }
+  .strip .spacer { flex: 1; }
+  .toolbar {
+    display: inline-flex; gap: var(--space-2);
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    align-items: center;
+  }
+  .tool-btn {
+    background: transparent; border: 1px solid var(--color-border);
+    color: var(--color-text-secondary); border-radius: 4px;
+    padding: 4px 8px; font: inherit; font-size: 11px; cursor: pointer;
+  }
+  .tool-btn:hover { color: var(--color-text-primary); border-color: var(--color-text-secondary); }
+  .cursor-lock {
+    padding: 4px 10px; background: var(--color-surface-2);
+    border: 1px solid var(--color-accent); color: var(--color-accent);
+    border-radius: 4px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* ─── Sector strip ──────────────────────────────────────────────── */
+  .sectors {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .sec-cell {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+  }
+  .sec-lbl {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .sec-time {
+    font-size: var(--text-lg); font-weight: 600; margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-delta { font-size: 11px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .sec-delta.faster { color: var(--color-green); }
+  .sec-delta.slower { color: var(--color-red); }
+  .sec-best-badge {
+    display: inline-block;
+    background: var(--color-accent); color: #000;
+    border-radius: 3px; padding: 1px 5px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+    margin-left: 4px; vertical-align: middle;
+  }
+
+  /* ─── Main two-col layout ───────────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4) 0;
+  }
+
+  /* ─── Sidebar ───────────────────────────────────────────────────── */
+  .sidebar {
+    display: flex; flex-direction: column; gap: var(--space-4);
+    align-self: start;
+    position: sticky; top: var(--space-3);
+  }
+  .side-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .side-head {
+    padding: 10px var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .lap-item {
+    display: grid;
+    grid-template-columns: 14px auto 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 8px var(--space-3);
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border-subtle);
+    transition: background 120ms;
+  }
+  .lap-item:hover { background: var(--color-surface-2); }
+  .lap-item:last-child { border-bottom: none; }
+  .lap-swatch { width: 12px; height: 12px; border-radius: 2px; background: transparent; border: 1px solid var(--color-border); }
+  .lap-item.selected .lap-swatch { border: none; }
+  .lap-item.selected[data-color="blue"]  .lap-swatch { background: var(--color-blue); }
+  .lap-item.selected[data-color="amber"] .lap-swatch { background: var(--color-amber); }
+  .lap-item.selected[data-color="green"] .lap-swatch { background: var(--color-green); }
+  .lap-item.selected[data-color="red"]   .lap-swatch { background: var(--color-red); }
+  .lap-num { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+  .lap-time {
+    font-size: var(--text-sm); font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .lap-item.selected .lap-time { color: var(--color-text-primary); }
+  .lap-best { color: var(--color-accent); margin-left: 4px; }
+
+  .ref-select {
+    width: 100%; background: var(--color-surface-2);
+    border: none; border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-primary);
+    font: inherit; font-size: var(--text-sm);
+    padding: 10px var(--space-3);
+    cursor: pointer;
+  }
+  .ref-select:last-child { border-bottom: none; }
+
+  .chan-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    font-size: var(--text-sm);
+  }
+  .chan-row:last-child { border-bottom: none; }
+  .chan-row input { margin: 0; accent-color: var(--color-accent); }
+  .chan-row.off { color: var(--color-text-quaternary); }
+
+  /* ─── Charts column ─────────────────────────────────────────────── */
+  .charts { display: flex; flex-direction: column; gap: var(--space-2); }
+  .chart {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px var(--space-3) 4px;
+  }
+  .chart-name {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .chart-readings {
+    font-size: 11px; font-variant-numeric: tabular-nums;
+    display: inline-flex; gap: var(--space-3);
+  }
+  .chart-readings .read-blue   { color: var(--color-blue); }
+  .chart-readings .read-amber  { color: var(--color-amber); }
+  .chart-svg { display: block; width: 100%; height: 80px; }
+  .chart.delta .chart-svg { height: 100px; }
+
+  /* X-axis row */
+  .x-axis {
+    display: flex; justify-content: space-between;
+    padding: 4px var(--space-3) 8px;
+    font-size: 10px; color: var(--color-text-quaternary);
+    font-family: var(--font-mono);
+  }
+
+  /* ─── Track map (sticky at top of charts column) ────────────────── */
+  .map-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
+    overflow: hidden;
+    position: sticky;
+    top: var(--space-3);
+    z-index: 5;
+  }
+  .map-block .map-head {
+    padding: 10px var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .map-block .map-head h2 {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .map-block .map-head .meta {
+    font-size: 11px; color: var(--color-text-quaternary);
+  }
+  .map-svg { display: block; width: 100%; height: 180px; }
+
+  /* ─── Color-by toggle (in map header) ───────────────────────────── */
+  .color-by {
+    display: inline-flex; gap: 2px;
+    background: var(--color-surface-2);
+    border-radius: 6px;
+    padding: 2px;
+    font-size: 10px;
+  }
+  .color-by button {
+    background: transparent; border: none;
+    color: var(--color-text-tertiary);
+    padding: 4px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .color-by button:hover { color: var(--color-text-primary); }
+  .color-by button.on {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+  }
+
+  /* ─── Insights panel ("Where you lost time") ────────────────────── */
+  .insights {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
+    overflow: hidden;
+  }
+  .insights-head {
+    padding: 10px var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .insights-head h2 {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .insights-head .meta {
+    font-size: 11px; color: var(--color-text-quaternary);
+  }
+  .insights-head .meta a {
+    color: var(--color-accent);
+    text-decoration: none;
+    margin-left: 8px;
+  }
+  .insights-head .meta a:hover { text-decoration: underline; }
+  .insight-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--color-border-subtle);
+  }
+  .insight-card {
+    background: var(--color-surface);
+    padding: 12px var(--space-3) 14px;
+    display: flex; flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .insight-card:hover { background: var(--color-surface-2); }
+  .insight-card-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .insight-card-rank {
+    font-size: 10px; color: var(--color-text-quaternary);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .insight-card-delta {
+    font-size: var(--text-lg); font-weight: 700;
+    color: var(--color-red);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .insight-card-corner { font-size: var(--text-md); font-weight: 500; }
+  .insight-card-detail {
+    font-size: 11px; color: var(--color-text-quaternary);
+    line-height: 1.4;
+  }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a; border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber); font-size: 11px;
+    padding: 6px 12px; text-align: center;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+
+  /* ─── Responsive ────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
+    .sectors { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">telemetry mock · /static/telemetry-mock.html · cursor locked @ d=1840m</div>
+
+<div class="page">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="topbar">
+    <a href="/static/home-mock.html" class="brand">pacefinder<span class="dot">.</span></a>
+    <span class="status"><span class="status-dot"></span>Idle · waiting for telemetry</span>
+    <span class="spacer"></span>
+    <span class="top-nav">
+      <a href="/dashboard">Live dashboard</a>
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+    </span>
+  </div>
+
+  <a href="/static/layer1-mock.html" class="crumb">← May 11 · 14:02 · Le Mans Practice</a>
+
+  <!-- ─── SUBNAV ─── -->
+  <div class="subnav">
+    <a href="/static/layer1-mock.html" class="subnav-item">Overview</a>
+    <span class="subnav-item active">Full telemetry</span>  </div>
+
+  <!-- ─── PAGE HEAD ─── -->
+  <div class="page-head">
+    <h1 class="page-h1">Le Mans Full Circuit</h1>
+    <a class="page-h2" href="/static/car-mock.html">
+      Pink Pig
+      <span class="class-badge">R</span>
+      <span class="pi">850</span>
+      <span class="page-h2-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- ─── METADATA STRIP + TELEMETRY TOOLBAR ─── -->
+  <div class="strip">
+    <span class="pill"><span class="label">When</span><span class="val">Sat May 11 · 14:02 – 14:34</span></span>
+    <span class="pill"><span class="label">Cond</span><span class="val">Dry · Hard · 28°C</span></span>
+    <span class="pill type-practice"><span class="val">Practice</span></span>
+    <span class="spacer"></span>
+    <span class="toolbar">
+      <button class="tool-btn">− zoom</button>
+      <button class="tool-btn">reset</button>
+      <button class="tool-btn">+ zoom</button>
+      <span class="cursor-lock">● cursor locked d=1840m</span>
+    </span>
+  </div>
+
+  <!-- ─── SECTOR STRIP ─── -->
+  <div class="sectors">
+    <div class="sec-cell">
+      <div class="sec-lbl">S1</div>
+      <div class="sec-time">24.512 <span class="sec-best-badge">best</span></div>
+      <div class="sec-delta faster">−0.05 vs theoretical</div>
+    </div>
+    <div class="sec-cell">
+      <div class="sec-lbl">S2</div>
+      <div class="sec-time">38.471</div>
+      <div class="sec-delta slower">+0.36</div>
+    </div>
+    <div class="sec-cell">
+      <div class="sec-lbl">S3</div>
+      <div class="sec-time">39.748</div>
+      <div class="sec-delta slower">+0.69</div>
+    </div>
+    <div class="sec-cell">
+      <div class="sec-lbl">Δ to L4 (best)</div>
+      <div class="sec-time" style="color:var(--color-red)">+0.473</div>
+      <div class="sec-delta" style="color:var(--color-text-tertiary)">L7 vs L4</div>
+    </div>
+  </div>
+
+  <!-- ─── MAIN: SIDEBAR + CHARTS ─── -->
+  <div class="main">
+
+    <!-- ───── SIDEBAR ───── -->
+    <aside class="sidebar">
+      <div class="side-block">
+        <div class="side-head">Laps (2 of 9 selected)</div>
+        <div class="lap-item selected" data-color="blue">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L4</span>
+          <span class="lap-time">1:42.731<span class="lap-best">★</span></span>
+        </div>
+        <div class="lap-item selected" data-color="amber">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L7</span>
+          <span class="lap-time">1:43.204</span>
+        </div>
+        <div class="lap-item">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L3</span>
+          <span class="lap-time">1:43.412</span>
+        </div>
+        <div class="lap-item">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L9</span>
+          <span class="lap-time">1:43.501</span>
+        </div>
+        <div class="lap-item">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L6</span>
+          <span class="lap-time">1:43.687</span>
+        </div>
+        <div class="lap-item">
+          <span class="lap-swatch"></span>
+          <span class="lap-num">L5</span>
+          <span class="lap-time">1:43.812</span>
+        </div>
+      </div>
+
+      <div class="side-block">
+        <div class="side-head">Reference</div>
+        <select class="ref-select">
+          <option>My Best Lap (L4)</option>
+          <option>Theoretical Best</option>
+          <option>Last Lap (L9)</option>
+          <option>Cross-session…</option>
+          <option>None</option>
+        </select>
+      </div>
+
+      <div class="side-block">
+        <div class="side-head">Channels</div>
+        <label class="chan-row"><input type="checkbox" checked> Speed</label>
+        <label class="chan-row"><input type="checkbox" checked> Throttle</label>
+        <label class="chan-row"><input type="checkbox" checked> Brake</label>
+        <label class="chan-row"><input type="checkbox" checked> Gear</label>
+        <label class="chan-row off"><input type="checkbox"> Steering</label>
+        <label class="chan-row"><input type="checkbox" checked> Slip</label>
+        <label class="chan-row off"><input type="checkbox"> Tyres</label>
+      </div>
+    </aside>
+
+    <!-- ───── CHARTS COLUMN ───── -->
+    <section class="charts">
+
+      <!-- ─── TRACK MAP (sticky, top of column) ─── -->
+      <div class="map-block">
+        <div class="map-head">
+          <h2>Track map</h2>
+          <span class="color-by">
+            <button class="on">Speed</button>
+            <button>Throttle</button>
+            <button>Brake</button>
+            <button>Slip</button>
+            <button>Delta</button>
+          </span>
+          <span class="meta">d=1840 m · T7 entry</span>
+        </div>
+        <svg class="map-svg" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="speedGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%"   stop-color="#3b3b3b"/>
+              <stop offset="10%"  stop-color="#4ade80"/>
+              <stop offset="30%"  stop-color="#fbbf24"/>
+              <stop offset="48%"  stop-color="#f87171"/>
+              <stop offset="55%"  stop-color="#3b3b3b"/>
+              <stop offset="75%"  stop-color="#fbbf24"/>
+              <stop offset="90%"  stop-color="#f87171"/>
+              <stop offset="100%" stop-color="#3b3b3b"/>
+            </linearGradient>
+          </defs>
+          <path d="
+            M 100 120 C 100 60, 160 28, 250 28
+            L 580 28 C 690 28, 760 60, 770 120
+            C 780 184, 720 200, 650 200
+            L 320 200 C 220 200, 140 184, 100 156 Z
+          " fill="none" stroke="url(#speedGrad)" stroke-width="6" stroke-linecap="round"/>
+
+          <!-- Corner markers -->
+          <g font-family="monospace" font-size="11" fill="var(--color-text-tertiary)">
+            <circle cx="100" cy="120" r="3" fill="var(--color-text-tertiary)"/><text x="80" y="125" text-anchor="end">Start</text>
+            <circle cx="265" cy="28" r="3" fill="#fbbf24"/><text x="265" y="18" text-anchor="middle">T3</text>
+            <circle cx="770" cy="120" r="7" fill="var(--color-accent)" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="790" y="110" fill="var(--color-accent)">T7 — cursor</text>
+            <circle cx="650" cy="200" r="3" fill="#fbbf24"/><text x="650" y="218" text-anchor="middle">T11</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- ─── INSIGHTS ("Where you lost time") ─── -->
+      <div class="insights">
+        <div class="insights-head">
+          <h2>Where you lost time</h2>
+          <span class="meta">L7 vs L4 · click to jump cursor <a href="/static/mistakes-mock.html">View all 12 events →</a></span>
+        </div>
+        <div class="insight-cards">
+          <div class="insight-card">
+            <div class="insight-card-top">
+              <span class="insight-card-rank">#1</span>
+              <span class="insight-card-delta">+0.23s</span>
+            </div>
+            <div class="insight-card-corner">T7 entry</div>
+            <div class="insight-card-detail">d ≈ 1840 m · 80 m window<br>brake too early</div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-card-top">
+              <span class="insight-card-rank">#2</span>
+              <span class="insight-card-delta">+0.19s</span>
+            </div>
+            <div class="insight-card-corner">T11 exit</div>
+            <div class="insight-card-detail">d ≈ 3120 m · 110 m window<br>early throttle lift</div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-card-top">
+              <span class="insight-card-rank">#3</span>
+              <span class="insight-card-delta">+0.18s</span>
+            </div>
+            <div class="insight-card-corner">T3 mid</div>
+            <div class="insight-card-detail">d ≈ 820 m · 60 m window<br>trail brake</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DELTA CHART (taller, the "headline" trace) -->
+      <div class="chart delta">
+        <div class="chart-header">
+          <span class="chart-name">Δ to reference (seconds)</span>
+          <span class="chart-readings">
+            <span class="read-amber">+0.231s @ cursor</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="100" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="100" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="0" y1="50" x2="1000" y2="50" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="2,3"/>
+          <path d="M 0 50 L 60 48 L 120 52 L 180 46 L 240 44 L 333 48 L 380 42 L 430 22 L 480 8 L 530 16 L 580 30 L 620 38 L 666 42 L 720 30 L 770 16 L 820 6 L 870 14 L 920 28 L 970 38 L 1000 44" fill="none" stroke="#fbbf24" stroke-width="2"/>
+          <!-- Cursor -->
+          <line x1="480" y1="0" x2="480" y2="100" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+          <circle cx="480" cy="8" r="4" fill="var(--color-accent)"/>
+        </svg>
+      </div>
+
+      <!-- SPEED -->
+      <div class="chart">
+        <div class="chart-header">
+          <span class="chart-name">Speed (mph)</span>
+          <span class="chart-readings">
+            <span class="read-blue">L4: 124</span>
+            <span class="read-amber">L7: 118</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 80" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <path d="M 0 50 L 60 24 L 180 8 L 280 20 L 333 28 L 430 48 L 480 64 L 560 38 L 666 24 L 770 50 L 820 64 L 920 28 L 1000 18" fill="none" stroke="#60a5fa" stroke-width="2"/>
+          <path d="M 0 52 L 60 28 L 180 12 L 280 24 L 333 32 L 430 50 L 480 68 L 560 42 L 666 28 L 770 54 L 820 68 L 920 32 L 1000 22" fill="none" stroke="#fbbf24" stroke-width="2"/>
+          <line x1="480" y1="0" x2="480" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+        </svg>
+      </div>
+
+      <!-- THROTTLE -->
+      <div class="chart">
+        <div class="chart-header">
+          <span class="chart-name">Throttle (%)</span>
+          <span class="chart-readings">
+            <span class="read-blue">L4: 0%</span>
+            <span class="read-amber">L7: 0%</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 80" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <path d="M 0 6 L 50 6 L 120 6 L 200 70 L 240 6 L 333 6 L 400 6 L 430 70 L 470 70 L 510 6 L 666 6 L 720 6 L 800 70 L 860 6 L 1000 6" fill="none" stroke="#60a5fa" stroke-width="2"/>
+          <path d="M 0 10 L 50 10 L 120 10 L 200 74 L 250 14 L 333 14 L 400 14 L 430 74 L 480 74 L 520 14 L 666 14 L 720 14 L 800 74 L 870 14 L 1000 14" fill="none" stroke="#fbbf24" stroke-width="2"/>
+          <line x1="480" y1="0" x2="480" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+        </svg>
+      </div>
+
+      <!-- BRAKE -->
+      <div class="chart">
+        <div class="chart-header">
+          <span class="chart-name">Brake (%)</span>
+          <span class="chart-readings">
+            <span class="read-blue">L4: 88%</span>
+            <span class="read-amber">L7: 96%</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 80" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <path d="M 0 74 L 50 74 L 150 74 L 180 14 L 220 74 L 333 74 L 400 74 L 460 8 L 510 74 L 666 74 L 720 74 L 780 10 L 840 74 L 1000 74" fill="none" stroke="#60a5fa" stroke-width="2"/>
+          <path d="M 0 74 L 50 74 L 140 74 L 170 6 L 240 74 L 333 74 L 400 74 L 450 4 L 520 74 L 666 74 L 720 74 L 770 4 L 850 74 L 1000 74" fill="none" stroke="#fbbf24" stroke-width="2"/>
+          <line x1="480" y1="0" x2="480" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+        </svg>
+      </div>
+
+      <!-- GEAR -->
+      <div class="chart">
+        <div class="chart-header">
+          <span class="chart-name">Gear</span>
+          <span class="chart-readings">
+            <span class="read-blue">L4: 3</span>
+            <span class="read-amber">L7: 3</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 80" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <!-- step-shaped gear trace -->
+          <path d="M 0 50 L 50 50 L 50 30 L 130 30 L 130 14 L 200 14 L 200 60 L 240 60 L 240 30 L 333 30 L 333 14 L 430 14 L 430 60 L 510 60 L 510 30 L 666 30 L 666 14 L 800 14 L 800 60 L 870 60 L 870 30 L 1000 14" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linejoin="miter"/>
+          <line x1="480" y1="0" x2="480" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+        </svg>
+      </div>
+
+      <!-- SLIP -->
+      <div class="chart">
+        <div class="chart-header">
+          <span class="chart-name">Combined slip ratio</span>
+          <span class="chart-readings">
+            <span class="read-blue">L4 peak 0.18</span>
+            <span class="read-amber">L7 peak 0.24 — pushing</span>
+          </span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 1000 80" preserveAspectRatio="none">
+          <line x1="333" y1="0" x2="333" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <line x1="666" y1="0" x2="666" y2="80" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+          <path d="M 0 70 L 60 60 L 120 64 L 180 30 L 240 64 L 333 60 L 400 48 L 460 22 L 510 60 L 600 56 L 666 50 L 770 22 L 820 14 L 870 44 L 1000 60" fill="none" stroke="#60a5fa" stroke-width="2"/>
+          <path d="M 0 68 L 60 56 L 120 60 L 180 22 L 240 60 L 333 56 L 400 42 L 460 10 L 510 56 L 600 50 L 666 44 L 770 14 L 820 4 L 870 38 L 1000 56" fill="none" stroke="#fbbf24" stroke-width="2"/>
+          <line x1="480" y1="0" x2="480" y2="80" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="2,2"/>
+        </svg>
+      </div>
+
+      <!-- X-AXIS (shared across all charts above) -->
+      <div class="x-axis">
+        <span>0 m</span>
+        <span>1500 m</span>
+        <span>1840 m ●</span>
+        <span>3000 m</span>
+        <span>4500 m</span>
+      </div>
+
+    </section>
+  </div>
+
+</div>
+
+</body>
+</html>

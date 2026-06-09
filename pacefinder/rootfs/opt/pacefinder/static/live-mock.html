@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Live · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .live {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  /* ─── Top bar ───────────────────────────────────────────────────── */
+  .tb {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+  }
+  .tb-status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .tb-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-text-quaternary);
+  }
+  .tb-status.live { color: var(--color-red); }
+  .tb-status.live .dot {
+    background: var(--color-red);
+    box-shadow: 0 0 8px var(--color-red);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .tb-sep { color: var(--color-text-quaternary); font-size: 11px; }
+  .tb-game {
+    display: inline-block; padding: 3px 8px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--color-text-quaternary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .tb-game.fm { color: var(--color-amber); border-color: rgba(251,191,36,0.35); }
+  .tb-track { color: var(--color-text-primary); font-weight: 500; }
+  .tb-car { color: var(--color-text-secondary); }
+  .tb-class {
+    display: inline-block; padding: 1px 7px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .tb-pi { color: var(--color-text-tertiary); font-size: 11px; }
+  .tb-spacer { flex: 1; }
+  .tb-nav { display: inline-flex; gap: 4px; }
+  .tb-nav a {
+    text-decoration: none;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .tb-nav a:hover { color: var(--color-text-primary); background: var(--color-surface-2); }
+  .tb-nav a.active { color: var(--color-text-primary); box-shadow: inset 0 -2px 0 var(--color-accent); }
+
+  /* ─── Main grid of panels ───────────────────────────────────────── */
+  .panels {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1.1fr 1.3fr;
+    gap: 8px;
+    min-height: 320px;
+  }
+  .tb, .udp { flex: 0 0 auto; }
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .panel-label {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .panel-meta {
+    font-size: 11px;
+    color: var(--color-text-quaternary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Bar pair panels (throttle+rpm, rear slip) */
+  .bar-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    flex: 1; min-height: 0;
+  }
+  .bar-stack { display: flex; flex-direction: column; min-height: 0; }
+  .bar-stack .sublabel {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .bar {
+    flex: 1;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .bar-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: var(--color-text-secondary);
+    transition: height 60ms linear;
+  }
+  .bar-fill.throttle { background: #d8d8d8; }
+  .bar-fill.rpm {
+    background: linear-gradient(180deg,
+      var(--color-red) 0%,
+      var(--color-red) 22%,
+      var(--color-amber) 35%,
+      var(--color-accent) 70%,
+      var(--color-accent) 100%);
+  }
+  .bar-fill.brake { background: var(--color-red); }
+  .bar-fill.slip-ok { background: var(--color-green); }
+  .bar-fill.slip-warn { background: var(--color-amber); }
+  .bar-fill.slip-danger { background: var(--color-red); }
+  .bar-value {
+    position: absolute; left: 0; right: 0; bottom: 8px;
+    text-align: center;
+    font-size: clamp(28px, 3.4vw, 56px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .bar-value .unit { display: block; font-size: 0.45em; font-weight: 600; opacity: 0.85; margin-top: 4px; }
+  .bar-value.dim { color: var(--color-text-tertiary); }
+
+  /* Single bar panel (brake) */
+  .bar-single { flex: 1; min-height: 0; }
+
+  /* ─── Lap timing right column ───────────────────────────────────── */
+  .lt {
+    display: flex; flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .lt-section { padding-bottom: 10px; border-bottom: 1px solid var(--color-border-subtle); }
+  .lt-section:last-child { border-bottom: none; padding-bottom: 0; }
+  .lt-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .lt-cell { display: flex; flex-direction: column; gap: 2px; }
+  .lt-cell .k {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .lt-cell .v {
+    font-size: clamp(22px, 1.9vw, 28px);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .lt-cell .v.best { color: var(--color-green); }
+  .lt-cell .v.dim  { color: var(--color-text-quaternary); }
+  .lt-cell .v.faster { color: var(--color-green); }
+  .lt-cell .v.slower { color: var(--color-red); }
+
+  /* 4-corner tyre grid */
+  .tyres {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .tyres .lt-cell .v { color: var(--color-green); font-size: clamp(20px, 1.7vw, 26px); }
+  .tyres .lt-cell .v.warn { color: var(--color-amber); }
+  .tyres .lt-cell .v.hot  { color: var(--color-red); }
+
+  /* Gear + Speed row — bigger */
+  .gs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gs-cell .v {
+    font-size: clamp(36px, 3vw, 48px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .gs-cell .v .unit { display: inline; font-size: 0.4em; font-weight: 500; color: var(--color-text-tertiary); margin-left: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* ─── Bottom UDP strip ──────────────────────────────────────────── */
+  .udp {
+    display: flex; align-items: center; gap: 18px;
+    padding: 6px 14px;
+    font-size: 10px;
+    color: var(--color-text-quaternary);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.05em;
+  }
+  .udp strong { color: var(--color-text-tertiary); font-weight: 500; }
+  .udp-spacer { flex: 1; }
+  .udp .debug {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-tertiary);
+    border-radius: 4px;
+    padding: 3px 9px;
+    font: inherit;
+    font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .udp .debug:hover { color: var(--color-text-primary); border-color: var(--color-text-secondary); }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a0a0a; border-bottom: 1px solid var(--color-border);
+    color: var(--color-red); font-size: 11px;
+    padding: 4px 12px; text-align: center;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1100px) {
+    .panels { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">live dashboard reskin · same layout as today · /static/live-mock.html · cosmetic only</div>
+
+<div class="live">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="tb">
+    <span class="tb-status live">
+      <span class="dot"></span>
+      Racing
+    </span>
+    <span class="tb-sep">·</span>
+    <span class="tb-game fm">FM</span>
+    <span class="tb-track">Maple Valley Full Circuit</span>
+    <span class="tb-sep">·</span>
+    <span class="tb-car">1997 Porsche 911 GT1 Strassenversion</span>
+    <span class="tb-class">X</span>
+    <span class="tb-pi">900</span>
+    <span class="tb-spacer"></span>
+    <span class="tb-nav">
+      <a href="/static/live-mock.html" class="active">Live</a>
+      <a href="/static/home-mock.html">Sessions</a>
+      <a href="/setup">Setup</a>
+    </span>
+  </div>
+
+  <!-- ─── PANELS ─── -->
+  <div class="panels">
+
+    <!-- THROTTLE + RPM -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-label">Throttle / RPM</span>
+        <span class="panel-meta">84% redline</span>
+      </div>
+      <div class="bar-pair">
+        <div class="bar-stack">
+          <div class="sublabel">Throttle</div>
+          <div class="bar">
+            <div class="bar-fill throttle" style="height: 100%"></div>
+            <div class="bar-value">100<span class="unit">%</span></div>
+          </div>
+        </div>
+        <div class="bar-stack">
+          <div class="sublabel">RPM</div>
+          <div class="bar">
+            <div class="bar-fill rpm" style="height: 84%"></div>
+            <div class="bar-value">7,578<span class="unit">rpm</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRAKE -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-label">Brake</span>
+        <span class="panel-meta">— peak this lap 92%</span>
+      </div>
+      <div class="bar bar-single">
+        <div class="bar-fill brake" style="height: 0%"></div>
+        <div class="bar-value dim">0<span class="unit">%</span></div>
+      </div>
+    </div>
+
+    <!-- REAR SLIP -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-label">Rear slip</span>
+        <span class="panel-meta">grip ok</span>
+      </div>
+      <div class="bar-pair">
+        <div class="bar-stack">
+          <div class="sublabel">RL</div>
+          <div class="bar">
+            <div class="bar-fill slip-ok" style="height: 32%"></div>
+            <div class="bar-value">0.079</div>
+          </div>
+        </div>
+        <div class="bar-stack">
+          <div class="sublabel">RR</div>
+          <div class="bar">
+            <div class="bar-fill slip-ok" style="height: 31%"></div>
+            <div class="bar-value">0.077</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAP TIMING -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-label">Lap timing</span>
+        <span class="panel-meta">L5 · 6.4 / 14.2 km</span>
+      </div>
+      <div class="lt">
+
+        <div class="lt-section">
+          <div class="lt-row">
+            <div class="lt-cell">
+              <span class="k">Current</span>
+              <span class="v">1:29.482</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">Best</span>
+              <span class="v best">1:29.637</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="lt-section">
+          <div class="lt-row">
+            <div class="lt-cell">
+              <span class="k">Last</span>
+              <span class="v">1:29.637</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">Lap #</span>
+              <span class="v">L5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="lt-section">
+          <div class="lt-cell">
+            <span class="k">Delta vs best</span>
+            <span class="v faster">−0.155</span>
+          </div>
+        </div>
+
+        <div class="lt-section">
+          <div class="lt-row">
+            <div class="lt-cell">
+              <span class="k">Pos</span>
+              <span class="v">3</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">Grid</span>
+              <span class="v dim">4</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="lt-section">
+          <span class="k" style="display:block;margin-bottom:6px;font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.08em;">Tyres</span>
+          <div class="tyres">
+            <div class="lt-cell">
+              <span class="k">FL</span>
+              <span class="v">206°</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">FR</span>
+              <span class="v">203°</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">RL</span>
+              <span class="v">196°</span>
+            </div>
+            <div class="lt-cell">
+              <span class="k">RR</span>
+              <span class="v">196°</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gs-row">
+          <div class="lt-cell gs-cell">
+            <span class="k">Gear</span>
+            <span class="v">6</span>
+          </div>
+          <div class="lt-cell gs-cell">
+            <span class="k">Speed</span>
+            <span class="v">169<span class="unit">mph</span></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── UDP STRIP ─── -->
+  <div class="udp">
+    <span>forza: <strong>557,388 ok</strong></span>
+    <span>acc: <strong>0 ok</strong></span>
+    <span>f1: <strong>0 ok</strong></span>
+    <span class="udp-spacer"></span>
+    <span>last packet <strong>11 ms</strong> ago · <strong>59.8 Hz</strong></span>
+    <button class="debug">Debug</button>
+  </div>
+
+</div>
+
+</body>
+</html>

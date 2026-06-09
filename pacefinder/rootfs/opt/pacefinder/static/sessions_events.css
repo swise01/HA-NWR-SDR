@@ -1,0 +1,62 @@
+/* All-events page — /sessions/session/events
+   Ported from static/mistakes-mock.html. Topbar shared with siblings. */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--color-bg);color:var(--color-text-primary);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+.tb{height:50px;display:flex;align-items:center;padding:0 var(--space-4);gap:14px;border-bottom:1px solid var(--color-border);position:sticky;top:0;background:var(--color-bg);z-index:10}
+.tb h1{font-size:var(--text-md);color:var(--color-text-primary);letter-spacing:3px;text-transform:uppercase;flex:1}
+.tb-nav{display:flex;gap:14px}
+.tb-nav a{font-size:var(--text-xs);color:var(--color-text-secondary);letter-spacing:1px;text-transform:uppercase}
+.tb-nav a:hover{color:var(--color-text-primary)}
+.page{max-width:1280px;margin:0 auto;padding:var(--space-4)}
+
+.crumb{font-size:var(--text-xs);color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.08em;display:inline-flex;align-items:center;gap:6px;padding:var(--space-2) 0}
+.crumb:hover{color:var(--color-text-primary)}
+
+.ev-head{display:flex;align-items:baseline;gap:var(--space-3);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-border)}
+.ev-eyebrow{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.08em}
+.ev-title{margin:0;font-size:clamp(24px,4vw,36px);font-weight:700;letter-spacing:-0.02em;line-height:1}
+.ev-meta{font-size:var(--text-sm);color:var(--color-text-tertiary);flex:1;text-align:right}
+
+.filters{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) 0;border-bottom:1px solid var(--color-border);flex-wrap:wrap}
+.filter-label{font-size:10px;color:var(--color-text-quaternary);text-transform:uppercase;letter-spacing:0.08em;margin-right:6px}
+.filter-sep{color:var(--color-text-quaternary);margin:0 var(--space-2)}
+.chip{display:inline-block;padding:4px 10px;background:transparent;border:1px solid var(--color-border);border-radius:999px;font-size:var(--text-xs);color:var(--color-text-secondary);cursor:pointer}
+.chip:hover{border-color:#2a2a2a;color:var(--color-text-primary)}
+.chip.on{background:var(--color-surface-2);color:var(--color-text-primary);border-color:#2a2a2a}
+
+.body{display:grid;grid-template-columns:360px 1fr;gap:0;border-bottom:1px solid var(--color-border)}
+.body>*{border-right:1px solid var(--color-border)}
+.body>*:last-child{border-right:none}
+
+.events{max-height:640px;overflow-y:auto}
+.event-row{display:grid;grid-template-columns:36px 1fr auto;gap:var(--space-3);align-items:center;padding:12px var(--space-4);border-bottom:1px solid var(--color-border-subtle);cursor:pointer;transition:background 120ms}
+.event-row:hover{background:var(--color-surface)}
+.event-row.selected{background:var(--color-surface-2);box-shadow:inset 3px 0 0 var(--color-accent)}
+.event-lap{display:inline-block;padding:3px 7px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:4px;font-size:11px;color:var(--color-text-secondary);text-align:center;font-variant-numeric:tabular-nums}
+.event-row.selected .event-lap{background:var(--color-accent);color:#000;border-color:var(--color-accent)}
+.event-corner{font-size:var(--text-md);font-weight:500}
+.event-detail{font-size:11px;color:var(--color-text-quaternary);margin-top:2px}
+.event-sev{font-size:var(--text-md);font-weight:600;font-variant-numeric:tabular-nums}
+.event-sev.worst{color:#dc2626}
+.event-sev.major{color:#f87171}
+.event-sev.minor{color:#fbbf24}
+
+.map-pane{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.map-frame{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-3)}
+.map-svg{display:block;width:100%;height:480px}
+.legend{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:10px var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:11px;color:var(--color-text-tertiary)}
+.legend-item{display:inline-flex;align-items:center;gap:6px}
+.legend-dot{width:14px;height:14px;border-radius:50%}
+
+.ev-empty{padding:60px;text-align:center;color:var(--color-text-quaternary);font-size:var(--text-sm);font-style:italic}
+
+@media (max-width:900px){
+  .body{grid-template-columns:1fr}
+  .body>*{border-right:none}
+  .events{max-height:320px}
+}

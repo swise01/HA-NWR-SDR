@@ -1,0 +1,21 @@
+[Unit]
+Description=Pacefinder UDP Listener
+After=network.target local-fs.target
+# Listener falls back to local storage if USB isn't mounted, so no hard USB dep.
+
+# Adjust WorkingDirectory + ExecStart paths below if you cloned the repo
+# somewhere other than /home/pi/pacefinderapp.
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pacefinderapp
+ExecStart=/usr/bin/python3 /home/pi/pacefinderapp/listener.py
+Restart=always
+RestartSec=5
+# Never stop restarting regardless of how many failures occur.
+StartLimitIntervalSec=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

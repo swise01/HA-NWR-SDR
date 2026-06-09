@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>All events · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: rgba(0, 0, 0, 0.85);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* Modal-style wrapper */
+  .modal {
+    max-width: 1280px;
+    margin: var(--space-4) auto;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+
+  /* ─── Modal header ──────────────────────────────────────────────── */
+  .modal-head {
+    display: flex; align-items: baseline; gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .modal-eyebrow {
+    font-size: 10px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .modal-title {
+    margin: 0;
+    font-size: var(--text-lg); font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .modal-meta {
+    font-size: var(--text-sm); color: var(--color-text-tertiary);
+    flex: 1;
+  }
+  .modal-close {
+    background: transparent; border: 1px solid var(--color-border);
+    color: var(--color-text-secondary); border-radius: 6px;
+    width: 32px; height: 32px;
+    cursor: pointer; font: inherit; font-size: var(--text-md);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { color: var(--color-text-primary); border-color: var(--color-text-secondary); }
+
+  /* ─── Filter bar ────────────────────────────────────────────────── */
+  .filters {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 10px; color: var(--color-text-quaternary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-right: 8px;
+  }
+  .chip {
+    display: inline-block;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+  .chip:hover { border-color: #2a2a2a; color: var(--color-text-primary); }
+  .chip.on { background: var(--color-surface-2); color: var(--color-text-primary); border-color: #2a2a2a; }
+  .filter-sep {
+    color: var(--color-text-quaternary);
+    margin: 0 var(--space-2);
+  }
+
+  /* ─── Body grid ─────────────────────────────────────────────────── */
+  .body {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+  }
+  .body > * { border-right: 1px solid var(--color-border); }
+  .body > *:last-child { border-right: none; }
+
+  /* ─── Event list (left) ─────────────────────────────────────────── */
+  .events {
+    max-height: 640px;
+    overflow-y: auto;
+  }
+  .event-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 12px var(--space-4);
+    border-bottom: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .event-row:hover { background: var(--color-surface); }
+  .event-row.selected { background: var(--color-surface-2); box-shadow: inset 3px 0 0 var(--color-accent); }
+  .event-lap {
+    display: inline-block;
+    padding: 3px 7px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .event-row.selected .event-lap { background: var(--color-accent); color: #000; border-color: var(--color-accent); }
+  .event-corner { font-size: var(--text-md); font-weight: 500; }
+  .event-detail { font-size: 11px; color: var(--color-text-quaternary); margin-top: 2px; }
+  .event-delta {
+    font-size: var(--text-md); font-weight: 600;
+    color: var(--color-red);
+    font-variant-numeric: tabular-nums;
+  }
+  .event-delta.tag-best { color: var(--color-green); }
+
+  /* ─── Track map (right) ─────────────────────────────────────────── */
+  .map-pane {
+    padding: var(--space-4);
+    background: var(--color-bg);
+    display: flex; flex-direction: column;
+    gap: var(--space-3);
+  }
+  .map-frame {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+  }
+  .map-svg {
+    display: block; width: 100%; height: 480px;
+  }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: var(--space-4);
+    padding: 10px var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 11px; color: var(--color-text-tertiary);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 50%; }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a; border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber); font-size: 11px;
+    padding: 6px 12px; text-align: center;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+
+  /* ─── Responsive ────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; }
+    .events { max-height: 320px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">all events modal mock · /static/mistakes-mock.html</div>
+
+<div class="modal">
+
+  <!-- ─── HEADER ─── -->
+  <div class="modal-head">
+    <div>
+      <div class="modal-eyebrow">All events · this session</div>
+      <h1 class="modal-title">Mistakes &amp; opportunities</h1>
+    </div>
+    <span class="modal-meta">Le Mans Full Circuit · Pink Pig · May 11 · 9 laps · 12 events detected</span>
+    <a href="/static/telemetry-mock.html" class="modal-close" title="Close">×</a>
+  </div>
+
+  <!-- ─── FILTERS ─── -->
+  <div class="filters">
+    <span class="filter-label">Show</span>
+    <span class="chip on">All laps</span>
+    <span class="chip">Worst 5</span>
+    <span class="chip">Best lap (L4)</span>
+    <span class="filter-sep">·</span>
+    <span class="filter-label">Type</span>
+    <span class="chip on">All</span>
+    <span class="chip">Brake</span>
+    <span class="chip">Throttle</span>
+    <span class="chip">Steering</span>
+    <span class="chip">Off-track</span>
+    <span class="filter-sep">·</span>
+    <span class="filter-label">Sort</span>
+    <span class="chip on">Severity</span>
+    <span class="chip">By lap</span>
+    <span class="chip">By location</span>
+  </div>
+
+  <!-- ─── BODY: LIST + MAP ─── -->
+  <div class="body">
+
+    <!-- ───── EVENT LIST ───── -->
+    <div class="events">
+
+      <div class="event-row">
+        <span class="event-lap">L1</span>
+        <div>
+          <div class="event-corner">T7 entry</div>
+          <div class="event-detail">d ≈ 1840 m · out-lap · cold tyres</div>
+        </div>
+        <span class="event-delta">+1.21s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L1</span>
+        <div>
+          <div class="event-corner">T11 exit</div>
+          <div class="event-detail">d ≈ 3120 m · over-rotation</div>
+        </div>
+        <span class="event-delta">+1.04s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L2</span>
+        <div>
+          <div class="event-corner">T7 entry</div>
+          <div class="event-detail">d ≈ 1840 m · brake too early</div>
+        </div>
+        <span class="event-delta">+0.61s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L7</span>
+        <div>
+          <div class="event-corner">T7 entry</div>
+          <div class="event-detail">d ≈ 1840 m · brake too early · 80 m window</div>
+        </div>
+        <span class="event-delta">+0.23s</span>
+      </div>
+
+      <div class="event-row selected">
+        <span class="event-lap">L7</span>
+        <div>
+          <div class="event-corner">T11 exit</div>
+          <div class="event-detail">d ≈ 3120 m · early throttle lift · 110 m window</div>
+        </div>
+        <span class="event-delta">+0.19s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L7</span>
+        <div>
+          <div class="event-corner">T3 mid</div>
+          <div class="event-detail">d ≈ 820 m · trail brake · 60 m window</div>
+        </div>
+        <span class="event-delta">+0.18s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L8</span>
+        <div>
+          <div class="event-corner">T11 exit</div>
+          <div class="event-detail">d ≈ 3120 m · early throttle lift</div>
+        </div>
+        <span class="event-delta">+0.17s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L3</span>
+        <div>
+          <div class="event-corner">T7 entry</div>
+          <div class="event-detail">d ≈ 1840 m · brake too early</div>
+        </div>
+        <span class="event-delta">+0.12s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L9</span>
+        <div>
+          <div class="event-corner">T3 mid</div>
+          <div class="event-detail">d ≈ 820 m · trail brake · in-lap</div>
+        </div>
+        <span class="event-delta">+0.11s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L4</span>
+        <div>
+          <div class="event-corner">T11 exit</div>
+          <div class="event-detail">d ≈ 3120 m · slight lift · best lap</div>
+        </div>
+        <span class="event-delta tag-best">−0.05s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L6</span>
+        <div>
+          <div class="event-corner">T7 entry</div>
+          <div class="event-detail">d ≈ 1840 m · brake too early</div>
+        </div>
+        <span class="event-delta">+0.09s</span>
+      </div>
+
+      <div class="event-row">
+        <span class="event-lap">L5</span>
+        <div>
+          <div class="event-corner">T3 mid</div>
+          <div class="event-detail">d ≈ 820 m · trail brake</div>
+        </div>
+        <span class="event-delta">+0.07s</span>
+      </div>
+
+    </div>
+
+    <!-- ───── MAP ───── -->
+    <div class="map-pane">
+
+      <div class="map-frame">
+        <svg class="map-svg" viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet">
+          <!-- Stylized loop -->
+          <path d="
+            M 100 240 C 100 130, 180 60, 300 60
+            L 700 60 C 830 60, 900 130, 900 240
+            C 900 360, 830 410, 720 410
+            L 320 410 C 200 410, 130 380, 100 320 Z
+          " fill="none" stroke="#3b3b3b" stroke-width="6" stroke-linecap="round"/>
+
+          <!-- Heatmap clusters: T7 entry (top-right area), T11 exit (bottom-right area), T3 mid (top-left) -->
+
+          <!-- T7 cluster — most events here -->
+          <circle cx="880" cy="200" r="38" fill="#f87171" opacity="0.08"/>
+          <circle cx="880" cy="200" r="26" fill="#f87171" opacity="0.12"/>
+          <circle cx="880" cy="200" r="14" fill="#f87171" opacity="0.20"/>
+
+          <!-- T11 cluster -->
+          <circle cx="780" cy="410" r="32" fill="#f87171" opacity="0.10"/>
+          <circle cx="780" cy="410" r="18" fill="#f87171" opacity="0.18"/>
+
+          <!-- T3 cluster -->
+          <circle cx="280" cy="60" r="24" fill="#fbbf24" opacity="0.10"/>
+          <circle cx="280" cy="60" r="12" fill="#fbbf24" opacity="0.20"/>
+
+          <!-- Individual event markers — sized by severity, colored by lap freshness/severity -->
+          <!-- T7 entry events (clustered) -->
+          <g>
+            <!-- L1 — biggest, out-lap -->
+            <circle cx="868" cy="190" r="12" fill="#dc2626" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="868" y="195" font-family="monospace" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">L1</text>
+            <!-- L2 -->
+            <circle cx="888" cy="184" r="9" fill="#f87171" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="888" y="188" font-family="monospace" font-size="8" fill="#fff" text-anchor="middle">L2</text>
+            <!-- L7 — selected -->
+            <circle cx="892" cy="210" r="8" fill="var(--color-accent)" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="892" y="214" font-family="monospace" font-size="8" fill="#000" text-anchor="middle" font-weight="700">L7</text>
+            <!-- L3 -->
+            <circle cx="876" cy="218" r="6" fill="#f87171" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="876" y="221" font-family="monospace" font-size="7" fill="#fff" text-anchor="middle">L3</text>
+            <!-- L6 -->
+            <circle cx="864" cy="208" r="5" fill="#f87171" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="864" y="211" font-family="monospace" font-size="7" fill="#fff" text-anchor="middle">L6</text>
+          </g>
+
+          <!-- T11 exit events -->
+          <g>
+            <!-- L1 -->
+            <circle cx="772" cy="402" r="10" fill="#dc2626" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="772" y="406" font-family="monospace" font-size="8" fill="#fff" text-anchor="middle" font-weight="700">L1</text>
+            <!-- L7 — selected, currently highlighted -->
+            <circle cx="790" cy="416" r="10" fill="var(--color-accent)" stroke="#fff" stroke-width="2"/>
+            <text x="790" y="420" font-family="monospace" font-size="8" fill="#000" text-anchor="middle" font-weight="700">L7</text>
+            <!-- L8 -->
+            <circle cx="800" cy="402" r="6" fill="#f87171" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="800" y="405" font-family="monospace" font-size="7" fill="#fff" text-anchor="middle">L8</text>
+            <!-- L4 — best, green -->
+            <circle cx="760" cy="418" r="5" fill="#4ade80" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="760" y="421" font-family="monospace" font-size="7" fill="#000" text-anchor="middle" font-weight="700">L4</text>
+          </g>
+
+          <!-- T3 mid events -->
+          <g>
+            <!-- L7 -->
+            <circle cx="280" cy="56" r="7" fill="#fbbf24" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="280" y="60" font-family="monospace" font-size="7" fill="#000" text-anchor="middle" font-weight="700">L7</text>
+            <!-- L9 -->
+            <circle cx="292" cy="64" r="5" fill="#fbbf24" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="292" y="67" font-family="monospace" font-size="7" fill="#000" text-anchor="middle">L9</text>
+            <!-- L5 -->
+            <circle cx="268" cy="62" r="4" fill="#fbbf24" stroke="#0a0a0a" stroke-width="2"/>
+            <text x="268" y="65" font-family="monospace" font-size="6" fill="#000" text-anchor="middle">L5</text>
+          </g>
+
+          <!-- Corner labels -->
+          <g font-family="monospace" font-size="12" fill="var(--color-text-tertiary)" font-weight="600">
+            <text x="100" y="252" text-anchor="end">Start</text>
+            <text x="280" y="34" text-anchor="middle">T3</text>
+            <text x="920" y="200" text-anchor="start">T7</text>
+            <text x="780" y="448" text-anchor="middle">T11</text>
+          </g>
+
+          <!-- Annotation for selected (L7 T11) -->
+          <g font-family="monospace" font-size="11" fill="var(--color-accent)">
+            <line x1="790" y1="416" x2="690" y2="450" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="3,3"/>
+            <text x="688" y="464" text-anchor="end">L7 · T11 exit · +0.19s</text>
+            <text x="688" y="478" text-anchor="end" fill="var(--color-text-quaternary)">early throttle lift</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Worst (&gt; 1 s)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span>Major (0.2 – 1 s)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span>Minor (&lt; 0.2 s)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>Gain vs theoretical</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--color-accent)"></span>Selected</span>
+        <span style="margin-left:auto;color:var(--color-text-quaternary);font-size:11px">Click a marker to highlight in the list · click a list row to highlight on the map</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

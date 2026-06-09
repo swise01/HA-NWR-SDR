@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Pacefinder · Rail prototype</title>
+<style>
+  /* Self-contained — no backend, no real data. Matches the app's dark
+     theme so it reads right on the rig. Static interaction proof only. */
+  :root{
+    --bg:#0c0c0d; --surface:#161617; --surface2:#1f1f21;
+    --border:#2a2a2c; --border-sub:#202022;
+    --txt:#f2f2f3; --txt2:#a8a8ad; --txt3:#7a7a80; --txt4:#5a5a60;
+    --accent:#e8b84b; --red:#ef4444; --green:#22c55e; --blue:#3b82f6;
+    --rail-w:232px; --rail-w-icons:60px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;cursor:pointer}
+
+  .app{display:flex;min-height:100vh}
+
+  /* ── Left rail ─────────────────────────────────────────────── */
+  .rail{
+    width:var(--rail-w);flex:0 0 var(--rail-w);
+    background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;
+    position:sticky;top:0;height:100vh;
+    transition:width .16s ease, flex-basis .16s ease;
+  }
+  .rail.icons{width:var(--rail-w-icons);flex-basis:var(--rail-w-icons)}
+  .rail-top{padding:14px 12px;border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:-.01em;font-size:15px;white-space:nowrap;overflow:hidden}
+  .brand .dot{color:var(--accent)}
+
+  /* Live indicator — state, top of rail, NOT a nav item */
+  .live{
+    margin:10px 12px;padding:8px 10px;border-radius:8px;
+    display:flex;align-items:center;gap:9px;
+    border:1px solid var(--border);background:var(--surface2);
+    color:var(--txt3);font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+    white-space:nowrap;overflow:hidden;cursor:pointer;
+  }
+  .live .dot{width:8px;height:8px;border-radius:50%;background:#555;flex:0 0 8px}
+  .live.hot{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.06)}
+  .live.hot .dot{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1.3s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  .nav{flex:1;padding:8px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+  .nav-item{
+    display:flex;align-items:center;gap:11px;
+    padding:7px 12px;border-radius:7px;color:var(--txt2);
+    font-size:13px;
+    white-space:nowrap;overflow:hidden;position:relative;
+  }
+  .nav-item .ico{flex:0 0 18px;text-align:center;font-size:14px;opacity:.9}
+  .nav-item .lbl{flex:1}
+  .nav-item .badge{
+    font-size:11px;color:var(--accent);background:rgba(232,184,75,.12);
+    padding:1px 7px;border-radius:999px;letter-spacing:0;text-transform:none;
+  }
+  .nav-item .cnt{font-size:11px;color:var(--txt4)}
+  .nav-item:hover{background:var(--surface2);color:var(--txt)}
+  .nav-item.cur{background:var(--surface2);color:var(--txt);box-shadow:inset 2px 0 0 var(--accent)}
+  .rail-bottom{padding:8px;border-top:1px solid var(--border)}
+
+  /* Icon-collapsed: hide labels/counts, tooltip on hover */
+  .rail.icons .brand span:not(.dot), .rail.icons .lbl,
+  .rail.icons .badge, .rail.icons .cnt, .rail.icons .live span:not(.dot){display:none}
+  .rail.icons .nav-item{justify-content:center;gap:0}
+  .rail.icons .live{justify-content:center;padding:8px 0}
+  .rail.icons .nav-item[data-tip]:hover::after{
+    content:attr(data-tip);position:absolute;left:calc(100% + 8px);
+    background:#000;border:1px solid var(--border);color:var(--txt);
+    padding:5px 9px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:50;
+  }
+  .collapse{
+    margin:10px 12px 0;background:none;border:1px solid var(--border);
+    color:var(--txt3);border-radius:6px;padding:6px;font-size:11px;
+  }
+  .collapse:hover{color:var(--txt)}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:88;display:none}
+
+  /* ── Content ───────────────────────────────────────────────── */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .crumb{padding:10px 22px;border-bottom:1px solid var(--border-sub);font-size:12px;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em}
+  .crumb a{color:var(--txt3)} .crumb a:hover{color:var(--txt)}
+  .content{padding:22px;max-width:1100px}
+  h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+  .sub{color:var(--txt3);font-size:13px;margin-bottom:18px}
+
+  /* Filter mechanism — narrows all → subset. H1 stays "Sessions". */
+  .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+  .fgrp{display:flex;align-items:center;gap:6px}
+  .fgrp .fl{font-size:11px;color:var(--txt4);text-transform:uppercase;letter-spacing:.08em;margin-right:2px}
+  .chip{
+    border:1px solid var(--border);background:var(--surface);color:var(--txt2);
+    padding:5px 12px;border-radius:999px;font-size:12px;
+  }
+  .chip:hover{border-color:var(--txt3);color:var(--txt)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+  .sortbar{display:flex;gap:6px;align-items:center;margin:14px 0;color:var(--txt3);font-size:12px}
+  .sortbar .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .sortbar .seg button{background:var(--surface);border:none;color:var(--txt2);padding:5px 12px;font-size:12px}
+  .sortbar .seg button.on{background:var(--surface2);color:var(--txt)}
+  .sortbar .seg button:disabled{opacity:.35;cursor:not-allowed}
+  .hint{color:var(--txt4);font-size:11px}
+
+  .row{
+    display:grid;grid-template-columns:96px 1fr 1fr 130px 84px 24px;
+    gap:14px;align-items:center;padding:13px 14px;
+    border-bottom:1px solid var(--border-sub);border-radius:8px;
+  }
+  .row:hover{background:var(--surface)}
+  .row.lead{background:var(--surface)}
+  .r-date{color:var(--txt2);font-size:13px}
+  .r-date small{display:block;color:var(--txt4);font-size:10px}
+  .r-track{font-weight:500}
+  .row.lead .r-track{font-size:15px;font-weight:600}
+  .r-car{color:var(--txt2);font-size:13px}
+  .r-cond{color:var(--txt4);font-size:11px}
+  .r-time{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+  .row.lead .r-time{color:var(--accent)}
+  .r-arrow{color:var(--txt4);text-align:right}
+
+  .placeholder{padding:60px 0;color:var(--txt4);text-align:center;font-style:italic}
+
+  /* ── Live takeover overlay ─────────────────────────────────── */
+  .takeover{
+    position:fixed;inset:0;z-index:100;background:var(--bg);
+    display:none;flex-direction:column;
+  }
+  .takeover.show{display:flex}
+  .to-bar{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border)}
+  .to-bar .live{margin:0}
+  .to-back{margin-left:auto;color:var(--txt3);font-size:13px;background:none;border:1px solid var(--border);border-radius:6px;padding:7px 14px}
+  .to-back:hover{color:var(--txt);border-color:var(--txt3)}
+  .to-body{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--txt3)}
+  .to-big{font-size:clamp(48px,10vw,104px);font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt)}
+
+  /* ── Controls (prototype only, not part of the design) ─────── */
+  .proto-ctl{
+    position:fixed;right:12px;bottom:12px;z-index:120;
+    background:#000;border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--txt3);
+    max-width:240px;
+  }
+  .proto-ctl b{color:var(--txt2);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  .proto-ctl button{background:var(--surface2);border:1px solid var(--border);color:var(--txt);border-radius:6px;padding:6px 10px;text-align:left}
+  .proto-ctl button:hover{border-color:var(--txt3)}
+  .proto-ctl .note{color:var(--txt4);font-size:10px;line-height:1.4}
+
+  /* ── Mobile (<760): rail → bottom bar OR hamburger overlay ─── */
+  .burger{display:none}
+  @media (max-width:760px){
+    .rail{
+      position:fixed;z-index:90;left:0;top:0;height:100vh;width:var(--rail-w);
+      flex-basis:var(--rail-w);transform:translateX(-100%);transition:transform .2s ease;
+    }
+    body.m-burger.nav-open .rail{transform:translateX(0)}
+    body.m-burger .burger{
+      display:flex;position:fixed;top:10px;right:10px;z-index:95;
+      background:var(--surface);border:1px solid var(--border);color:var(--txt);
+      width:40px;height:40px;border-radius:8px;align-items:center;justify-content:center;font-size:18px;
+    }
+    body.m-burger.nav-open .burger{display:none}
+    body.m-burger.nav-open .scrim{display:block}
+    body.m-burger .main{padding-top:52px}
+
+    /* Bottom-bar mode: rail becomes a fixed thumb-reachable bottom strip */
+    body.m-bottom .rail{
+      transform:none;flex-direction:row;width:100%;flex-basis:auto;
+      height:auto;bottom:0;top:auto;border-right:none;border-top:1px solid var(--border);
+      padding:0;padding-bottom:env(safe-area-inset-bottom);
+    }
+    body.m-bottom .rail-top,body.m-bottom .live,body.m-bottom .collapse,
+    body.m-bottom .rail-bottom{display:none}
+    body.m-bottom .nav{flex-direction:row;justify-content:space-around;padding:6px 4px;overflow:visible}
+    body.m-bottom .nav-item{flex-direction:column;gap:3px;padding:6px 8px;font-size:10px}
+    body.m-bottom .nav-item .lbl{flex:none}
+    body.m-bottom .nav-item .badge,body.m-bottom .nav-item .cnt{display:none}
+    body.m-bottom .nav-item.cur{box-shadow:none;color:var(--accent)}
+    body.m-bottom .main{padding-bottom:64px}
+    .content{padding:16px}
+    .row{grid-template-columns:1fr auto;gap:6px}
+    .row .r-car,.row .r-cond,.row .r-arrow{display:none}
+  }
+</style>
+</head>
+<body class="m-bottom">
+
+<button class="burger" onclick="openNav()">☰</button>
+<div class="scrim" onclick="closeNav()"></div>
+
+<div class="app">
+  <!-- LEFT RAIL -->
+  <nav class="rail" id="rail">
+    <div class="rail-top">
+      <div class="brand"><span class="dot">●</span><span>pacefinder</span></div>
+      <button class="collapse" onclick="document.getElementById('rail').classList.toggle('icons')">⇆ Collapse</button>
+    </div>
+
+    <!-- Live = state, front & centre, above Home. Not a nav row. -->
+    <div class="live" id="live" onclick="takeover(true)">
+      <span class="dot"></span><span id="live-txt">Idle · no session</span>
+    </div>
+
+    <div class="nav">
+      <a class="nav-item cur" data-tip="Home" onclick="go(this,'home')"><span class="ico">⌂</span><span class="lbl">Home</span></a>
+      <a class="nav-item" data-tip="Sessions" onclick="go(this,'sessions')">
+        <span class="ico">≣</span><span class="lbl">Sessions</span><span class="badge">3 to review</span>
+      </a>
+      <a class="nav-item" data-tip="Tracks" onclick="go(this,'tracks')"><span class="ico">⌖</span><span class="lbl">Tracks</span><span class="cnt">18</span></a>
+      <a class="nav-item" data-tip="Cars" onclick="go(this,'cars')"><span class="ico">⚙</span><span class="lbl">Cars</span><span class="cnt">12</span></a>
+    </div>
+
+    <div class="rail-bottom">
+      <a class="nav-item" data-tip="Settings" onclick="go(this,'settings')"><span class="ico">⚙</span><span class="lbl">Settings</span></a>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="main">
+    <div class="crumb"><a>Home</a> › <a>Sessions</a> › <span style="color:var(--txt2)">filtered</span> &nbsp;<span class="hint">(breadcrumb stays in content — rail is section-level only)</span></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- LIVE TAKEOVER -->
+<div class="takeover" id="takeover">
+  <div class="to-bar">
+    <div class="live hot"><span class="dot"></span><span>Recording · Spa-Francorchamps</span></div>
+    <button class="to-back" onclick="takeover(false)">‹ Back to analysis</button>
+  </div>
+  <div class="to-body">
+    <div class="to-big">1:48.<span style="color:var(--txt3)">912</span></div>
+    <div>LAP 4 · Live takeover (auto on session start). Quiet, non-blocking escape →</div>
+  </div>
+</div>
+
+<!-- PROTOTYPE CONTROLS (not part of the design) -->
+<div class="proto-ctl">
+  <b>Prototype controls</b>
+  <button onclick="simLive()">▶ Simulate session start (takeover)</button>
+  <button onclick="setM('m-bottom')">📱 Mobile: bottom bar</button>
+  <button onclick="setM('m-burger')">📱 Mobile: hamburger</button>
+  <div class="note">Resize &lt;760px (or open on the phone) to feel the active mobile mode. Desktop: try “Collapse”.</div>
+</div>
+
+<script>
+  const C = document.getElementById('content');
+
+  const SESS = [
+    {d:'May 16',t:'16:31',track:'Suzuka Circuit East',car:'911 GT1 Strassen',cond:'Dry · Soft',lap:'0:49.153',wet:false},
+    {d:'May 15',t:'19:54',track:'Maple Valley Full',car:'2023 911 GT3 R',cond:'Wet · Wet',lap:'1:33.982',wet:true},
+    {d:'May 15',t:'14:02',track:'Spa-Francorchamps',car:'2023 911 GT3 R',cond:'Wet · Wet',lap:'2:18.764',wet:true},
+    {d:'May 12',t:'21:10',track:'Nürburgring Nordschleife',car:'Radical RXC Turbo',cond:'Dry · Medium',lap:'6:42.115',wet:false},
+    {d:'May 11',t:'18:30',track:'Spa-Francorchamps',car:'2023 911 GT3 R',cond:'Dry · Soft',lap:'2:15.330',wet:false},
+  ];
+  const F = {car:null, track:null, cond:null, type:null};
+  let SORT = 'recent';
+
+  function sessionsView(){
+    const car = F.car, track = F.track, cond = F.cond;
+    let rows = SESS.filter(s =>
+      (!car   || s.car.includes(car)) &&
+      (!track || s.track === track) &&
+      (!cond  || (cond==='Wet') === s.wet)
+    );
+    if(SORT==='fastest' && F.track) rows = rows.slice().sort((a,b)=>a.lap.localeCompare(b.lap));
+
+    const trackOn = !!F.track;
+    C.innerHTML = `
+      <h1>Sessions</h1>
+      <div class="sub">All recorded sessions. Filter to the slice you want.</div>
+      <div class="filters">
+        <div class="fgrp"><span class="fl">Car</span>
+          ${chip('car','911 GT3 R','911 GT3 R')}${chip('car','RXC','Radical')}${chip('car','GT1','911 GT1')}</div>
+        <div class="fgrp"><span class="fl">Track</span>
+          ${chip('track','Spa-Francorchamps','Spa')}${chip('track','Suzuka Circuit East','Suzuka E')}${chip('track','Nürburgring Nordschleife','Nordschleife')}</div>
+        <div class="fgrp"><span class="fl">Cond</span>
+          ${chip('cond','Wet','Wet')}${chip('cond','Dry','Dry')}</div>
+        <div class="fgrp"><span class="fl">Type</span>
+          ${chip('type','race','Race')}${chip('type','practice','Practice')}</div>
+      </div>
+      <div class="sortbar">
+        <span>Sort</span>
+        <div class="seg">
+          <button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">Recent</button>
+          <button class="${SORT==='fastest'?'on':''}" ${trackOn?'':'disabled'} onclick="setSort('fastest')">Fastest</button>
+        </div>
+        <span class="hint">${trackOn?'Fastest = leaderboard for this circuit' : 'Fastest unlocks when one Track is selected (lap time isn’t comparable across circuits)'}</span>
+      </div>
+      ${rows.length ? rows.map((s,i)=>`
+        <div class="row${i===0&&SORT!=='fastest'?' lead':''}">
+          <span class="r-date">${s.d}<small>${s.t}</small></span>
+          <span class="r-track">${s.track}</span>
+          <span class="r-car">${s.car}</span>
+          <span class="r-cond">${s.cond}</span>
+          <span class="r-time">${s.lap}</span>
+          <span class="r-arrow">→</span>
+        </div>`).join('')
+        : `<div class="placeholder">No sessions match this filter.</div>`}
+    `;
+  }
+  function chip(grp,val,label){
+    const on = F[grp]===val;
+    return `<button class="chip${on?' on':''}" onclick="tog('${grp}','${val.replace(/'/g,"\\'")}')">${label}</button>`;
+  }
+  window.tog=(g,v)=>{ F[g] = F[g]===v ? null : v; if(g!=='track' && SORT==='fastest' && !F.track) SORT='recent'; if(!F.track) SORT='recent'; sessionsView(); };
+  window.setSort=(s)=>{ SORT=s; sessionsView(); };
+
+  window.go=(el,where)=>{
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('cur'));
+    el.classList.add('cur');
+    if(where==='sessions'){ sessionsView(); return; }
+    const titles={home:'Home',tracks:'Tracks',cars:'Cars',settings:'Settings'};
+    const subs={
+      home:'Career strip · recent · “3 to review”. Entry to Tracks/Cars too (kept by choice).',
+      tracks:'18 circuits driven. → circuit detail.',
+      cars:'12 cars. → car detail.',
+      settings:'Storage · ports · AI key · time format · Debug mode (Debug/Perf/Admin nest here).'
+    };
+    C.innerHTML = `<h1>${titles[where]}</h1><div class="sub">${subs[where]}</div>
+      <div class="placeholder">${titles[where]} — placeholder. This prototype focuses on the rail, mobile modes, live takeover, and the Sessions filter.</div>`;
+    closeNav(); // tapping a destination closes the mobile drawer
+  };
+
+  window.openNav=()=>{ document.body.classList.add('nav-open'); };
+  window.closeNav=()=>{ document.body.classList.remove('nav-open'); };
+  window.takeover=(on)=>{ document.getElementById('takeover').classList.toggle('show',on); };
+  window.simLive=()=>{
+    const l=document.getElementById('live');
+    l.classList.add('hot'); document.getElementById('live-txt').textContent='Recording · view live';
+    takeover(true);
+  };
+  window.setM=(m)=>{ document.body.className=m; };
+
+  sessionsView(); // open on the Sessions filter view so it's the thing you judge
+  document.querySelector('.nav-item[onclick*="sessions"]').classList.add('cur');
+  document.querySelector('.nav-item[onclick*="home"]').classList.remove('cur');
+</script>
+</body>
+</html>

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Circuit — Le Mans Full Circuit · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  .page { max-width: 1280px; margin: 0 auto; padding: var(--space-4); }
+  a { color: inherit; }
+
+  /* ─── Breadcrumb + title ────────────────────────────────────────── */
+  .crumb {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--space-2) 0;
+  }
+  .crumb:hover { color: var(--color-text-primary); }
+  .title {
+    margin: 0 0 4px;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .subtitle .dot { color: #444; margin: 0 8px; }
+
+  /* ─── Hero ──────────────────────────────────────────────────────── */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: var(--space-6);
+    padding: var(--space-6) 0;
+    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+  }
+  .hero-time {
+    font-size: clamp(40px, 5.5vw, 72px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .hero-time-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .hero-gap {
+    margin-top: var(--space-4);
+    font-size: clamp(20px, 2.8vw, 32px);
+    color: var(--color-red);
+    font-weight: 500;
+  }
+  .hero-gap-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .progress { position: relative; width: 100%; }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .chart-title { font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .chart-meta { font-size: 11px; color: var(--color-text-quaternary); }
+  .progress-svg { display: block; width: 100%; height: 200px; }
+
+  /* ─── Theoretical card ──────────────────────────────────────────── */
+  .theo {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: var(--space-6);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+  }
+  .theo-label { font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .theo-time { font-size: clamp(28px, 4vw, 40px); font-weight: 600; margin-top: 4px; color: var(--color-accent); }
+  .theo-note { font-size: 11px; color: var(--color-text-quaternary); margin-top: 6px; }
+  .sectors {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+  }
+  .sect {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+  }
+  .sect-num { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .sect-time { font-size: var(--text-lg); font-weight: 500; margin-top: 4px; }
+  .sect-prov { font-size: 11px; color: var(--color-text-quaternary); margin-top: 6px; }
+  .sect-prov a { text-decoration: none; }
+  .sect-prov a:hover { color: var(--color-accent); }
+
+  /* ─── AI tip ────────────────────────────────────────────────────── */
+  .tip {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .tip-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-2);
+  }
+  .tip-head h2 { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+  .tip-head .meta { font-size: 11px; color: var(--color-text-quaternary); }
+  .tip-body {
+    font-size: var(--text-md);
+    line-height: 1.6;
+    color: var(--color-text-primary);
+    font-style: italic;
+    max-width: 70ch;
+  }
+  .tip-regen {
+    display: inline-block;
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+  .tip-regen:hover { color: var(--color-accent); }
+
+  /* ─── Sessions ──────────────────────────────────────────────────── */
+  .sessions { padding-top: var(--space-4); }
+  .sessions-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-3);
+  }
+  .sessions-head h2 { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+  .sessions-head .count { font-size: 11px; color: var(--color-text-quaternary); }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-3);
+  }
+  .filter-group { display: inline-flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .chip {
+    display: inline-block;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .chip:hover { border-color: #2a2a2a; color: var(--color-text-primary); }
+  .chip.on { background: var(--color-surface-2); color: var(--color-text-primary); border-color: #2a2a2a; }
+
+  .session-list { display: flex; flex-direction: column; gap: 4px; }
+  .session-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 200px 120px 60px;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 14px var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color 120ms, background 120ms;
+  }
+  .session-row:hover { border-color: var(--color-text-secondary); background: var(--color-surface-2); }
+  .session-row.is-best { border-color: rgba(232,184,75,0.35); }
+  .session-date { font-size: var(--text-sm); color: var(--color-text-secondary); }
+  .session-date small { display: block; font-size: 10px; color: var(--color-text-quaternary); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; margin-top: 2px; }
+  .session-car { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--color-text-primary); }
+  .session-car .class-badge {
+    display: inline-block; padding: 1px 6px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .session-cond { font-size: var(--text-xs); color: var(--color-text-secondary); }
+  .session-cond .sep { color: #444; margin: 0 6px; }
+  .session-time { font-size: var(--text-md); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+  .session-time .best-star { color: var(--color-accent); margin-left: 4px; }
+  .session-arrow { text-align: right; color: #555; font-size: var(--text-md); }
+  .session-row:hover .session-arrow { color: var(--color-text-primary); }
+
+  /* ─── Top bar (global nav) ──────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand {
+    font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.01em;
+    color: var(--color-text-primary); text-decoration: none;
+  }
+  .brand .dot { color: var(--color-accent); }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: 999px;
+    font-size: 11px; color: var(--color-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+  .topbar .spacer { flex: 1; }
+  .top-nav { display: inline-flex; gap: var(--space-3); }
+  .top-nav a {
+    font-size: var(--text-sm); color: var(--color-text-secondary);
+    padding: 6px 10px; border-radius: 6px; text-decoration: none;
+  }
+  .top-nav a:hover { color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber);
+    font-size: 11px;
+    padding: 6px 12px;
+    text-align: center;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Responsive ────────────────────────────────────────────────── */
+  @media (max-width: 760px) {
+    .hero, .theo { grid-template-columns: 1fr; }
+    .sectors { grid-template-columns: 1fr; }
+    .session-row { grid-template-columns: 1fr auto; row-gap: 8px; }
+    .session-row .session-cond, .session-row .session-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">circuit landing mock · static data · /static/circuit-mock.html</div>
+
+<div class="page">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="topbar">
+    <a href="/static/home-mock.html" class="brand">pacefinder<span class="dot">.</span></a>
+    <span class="status"><span class="status-dot"></span>Idle · waiting for telemetry</span>
+    <span class="spacer"></span>
+    <span class="top-nav">
+      <a href="/dashboard">Live dashboard</a>
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+    </span>
+  </div>
+
+  <a href="/static/home-mock.html" class="crumb">← All circuits</a>
+  <h1 class="title">Le Mans Full Circuit</h1>
+  <div class="subtitle">
+    13.626 km<span class="dot">·</span>38 corners<span class="dot">·</span>8 sessions
+  </div>
+
+  <!-- ─── HERO: personal best + progress chart ─── -->
+  <div class="hero">
+    <div>
+      <div class="hero-time">1:41.892</div>
+      <div class="hero-time-sub">Personal best · Apr 12</div>
+      <div class="hero-gap">+0.31s</div>
+      <div class="hero-gap-sub">vs your theoretical</div>
+    </div>
+
+    <div class="progress">
+      <div class="chart-header">
+        <div class="chart-title">Best lap by session</div>
+        <div class="chart-meta">Pink Pig only · Mar 15 → May 11</div>
+      </div>
+
+      <!-- Progress line: y is lap time, lower = better. Hand-tuned to mock data -->
+      <svg class="progress-svg" viewBox="0 0 1000 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="0" y1="40"  x2="1000" y2="40"  stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="0" y1="90"  x2="1000" y2="90"  stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="0" y1="140" x2="1000" y2="140" stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="0" y1="190" x2="1000" y2="190" stroke="#1a1a1a" stroke-width="1"/>
+
+        <!-- Y axis labels -->
+        <text x="0" y="44"  fill="#555" font-size="10" font-family="monospace">1:44</text>
+        <text x="0" y="94"  fill="#555" font-size="10" font-family="monospace">1:43</text>
+        <text x="0" y="144" fill="#555" font-size="10" font-family="monospace">1:42</text>
+        <text x="0" y="194" fill="#555" font-size="10" font-family="monospace">1:41</text>
+
+        <!-- Personal-best baseline -->
+        <line x1="50" y1="151.5" x2="1000" y2="151.5" stroke="#e8b84b" stroke-width="1" stroke-dasharray="2,4" opacity="0.4"/>
+        <text x="1000" y="148" fill="#e8b84b" font-size="10" font-family="monospace" text-anchor="end" opacity="0.7">PB 1:41.892</text>
+
+        <!-- Trend line -->
+        <!--
+          x-positions correspond to dates (Mar 15 → May 11, 57 days)
+          y-positions correspond to lap times mapped to chart: 1:44→40, 1:41→190
+        -->
+        <path d="
+          M 80 89
+          L 250 121
+          L 380 142.5
+          L 530 153.5
+          L 650 117
+          L 870 132
+        " fill="none" stroke="#60a5fa" stroke-width="2"/>
+
+        <!-- Faint area under -->
+        <path d="
+          M 80 89 L 250 121 L 380 142.5 L 530 153.5 L 650 117 L 870 132
+          L 870 200 L 80 200 Z
+        " fill="#60a5fa" opacity="0.07"/>
+
+        <!-- Points -->
+        <circle cx="80"  cy="89"   r="4" fill="#60a5fa"/>
+        <circle cx="250" cy="121"  r="4" fill="#60a5fa"/>
+        <circle cx="380" cy="142.5" r="4" fill="#60a5fa"/>
+        <circle cx="530" cy="153.5" r="6" fill="#e8b84b" stroke="#0a0a0a" stroke-width="2"/>
+        <circle cx="650" cy="117"  r="4" fill="#60a5fa"/>
+        <circle cx="870" cy="132"  r="5" fill="#60a5fa" stroke="#0a0a0a" stroke-width="2"/>
+
+        <!-- X axis labels -->
+        <text x="80"  y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">Mar 15</text>
+        <text x="250" y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">Mar 28</text>
+        <text x="380" y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">Apr 5</text>
+        <text x="530" y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">Apr 12 ★</text>
+        <text x="650" y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">Apr 28</text>
+        <text x="870" y="200" fill="var(--color-text-quaternary)" font-size="10" font-family="monospace" text-anchor="middle">May 11 ●</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ─── THEORETICAL BREAKDOWN ─── -->
+  <div class="theo">
+    <div>
+      <div class="theo-label">Theoretical best</div>
+      <div class="theo-time">1:41.583</div>
+      <div class="theo-note">Sum of your best sectors. Provenance below.</div>
+    </div>
+    <div class="sectors">
+      <div class="sect">
+        <div class="sect-num">S1</div>
+        <div class="sect-time">24.412</div>
+        <div class="sect-prov">L2 · <a href="/static/layer1-mock.html">Mar 28</a></div>
+      </div>
+      <div class="sect">
+        <div class="sect-num">S2</div>
+        <div class="sect-time">38.114</div>
+        <div class="sect-prov">L4 · <a href="/static/layer1-mock.html">Apr 12</a></div>
+      </div>
+      <div class="sect">
+        <div class="sect-num">S3</div>
+        <div class="sect-time">39.057</div>
+        <div class="sect-prov">L6 · <a href="/static/layer1-mock.html">May 11</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── AI TRACK TIP ─── -->
+  <div class="tip">
+    <div class="tip-head">
+      <h2>Track tip</h2>
+      <div class="meta">— Claude · cached 2026-05-02</div>
+    </div>
+    <div class="tip-body">
+      "Le Mans rewards a clean exit out of Tertre Rouge — most of the lap's time
+      is on the Mulsanne straight, so anything you give up at the chicanes
+      compounds. Brake later for Indianapolis and trail to apex; the run to
+      Arnage is short enough that a tidy entry beats a heroic late brake."
+    </div>
+    <a href="#" class="tip-regen">↻ Re-generate</a>
+  </div>
+
+  <!-- ─── SESSIONS LIST ─── -->
+  <div class="sessions">
+    <div class="sessions-head">
+      <h2>Sessions</h2>
+      <div class="count">8 sessions · 47 laps</div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Car</span>
+        <a href="#" class="chip on">All</a>
+        <a href="#" class="chip">Pink Pig</a>
+        <a href="#" class="chip">Cayman GT4</a>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Class</span>
+        <a href="#" class="chip on">All</a>
+        <a href="#" class="chip">R</a>
+        <a href="#" class="chip">S</a>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Cond</span>
+        <a href="#" class="chip on">All</a>
+        <a href="#" class="chip">Dry</a>
+        <a href="#" class="chip">Damp</a>
+        <a href="#" class="chip">Wet</a>
+      </div>
+    </div>
+
+    <div class="session-list">
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">May 11<small>14:02</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Hard<span class="sep">·</span>28°C</span>
+        <span class="session-time">1:42.731</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Apr 28<small>19:14</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Damp<span class="sep">·</span>Med<span class="sep">·</span>22°C</span>
+        <span class="session-time">1:43.412</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row is-best">
+        <span class="session-date">Apr 12<small>15:42</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Hard<span class="sep">·</span>26°C</span>
+        <span class="session-time">1:41.892<span class="best-star">★</span></span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Apr 5<small>11:20</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Soft<span class="sep">·</span>30°C</span>
+        <span class="session-time">1:42.014</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Mar 28<small>17:45</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Hard<span class="sep">·</span>24°C</span>
+        <span class="session-time">1:42.658</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Mar 15<small>13:08</small></span>
+        <span class="session-car">Pink Pig <span class="class-badge">R</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Hard<span class="sep">·</span>22°C</span>
+        <span class="session-time">1:43.987</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Feb 20<small>21:55</small></span>
+        <span class="session-car">Cayman GT4 <span class="class-badge" style="background:#60a5fa">S</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Hard<span class="sep">·</span>24°C</span>
+        <span class="session-time">1:48.231</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="session-row">
+        <span class="session-date">Feb 10<small>18:30</small></span>
+        <span class="session-car">Cayman GT4 <span class="class-badge" style="background:#60a5fa">S</span></span>
+        <span class="session-cond">Dry<span class="sep">·</span>Med<span class="sep">·</span>20°C</span>
+        <span class="session-time">1:49.404</span>
+        <span class="session-arrow">→</span>
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

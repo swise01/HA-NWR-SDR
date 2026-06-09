@@ -1,0 +1,104 @@
+:root {
+  /* Typography */
+  --font-mono: 'DM Mono', 'Fira Mono', 'Courier New', monospace;
+  --text-xs: clamp(9px, 1.2vw, 11px);
+  --text-sm: clamp(11px, 1.5vw, 13px);
+  --text-md: clamp(13px, 1.8vw, 15px);
+  --text-lg: clamp(16px, 2.5vw, 20px);
+  --text-xl: clamp(24px, 4vw, 36px);
+  --text-2xl: clamp(36px, 6vw, 56px);
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-bold: 700;
+  --fw-black: 900;
+
+  /* Colours */
+  --color-bg: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-2: #161616;
+  --color-border: #1e1e1e;
+  --color-border-subtle: #141414;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: lightgrey;
+  --color-text-muted: lightgrey;
+  --color-text-dim: lightgrey;
+  /* Tertiary / quaternary sit *below* the muted/dim rung — for small
+     uppercase labels, eyebrows, and timestamp meta on dark surfaces.
+     Tested at ~6.5:1 and ~4.8:1 contrast on --color-bg. */
+  --color-text-tertiary:   #b0b0b0;
+  --color-text-quaternary: #8a8a8a;
+  --color-accent: #e8b84b;
+  --color-green: #4ade80;
+  --color-red: #f87171;
+  --color-blue: #60a5fa;
+  --color-amber: #fbbf24;
+
+  /* Spacing */
+  --space-1: clamp(4px, 0.5vw, 6px);
+  --space-2: clamp(8px, 1vw, 12px);
+  --space-3: clamp(12px, 1.5vw, 16px);
+  --space-4: clamp(16px, 2vw, 24px);
+  --space-6: clamp(24px, 3vw, 36px);
+  --space-8: clamp(32px, 4vw, 48px);
+
+  /* Dashboard specific */
+  --dash-label-size: clamp(10px, 1.8vw, 14px);
+  --dash-value-size: clamp(28px, 6vw, 56px);
+  --dash-stat-size: clamp(11px, 1.5vw, 13px);
+  --dash-bottom-size: clamp(14px, 2.5vw, 20px);
+  --dash-gear-size: clamp(40px, 8vw, 72px);
+  --dash-speed-size: clamp(28px, 5vw, 48px);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Legacy aliases — keep old names resolving to new tokens */
+  --bg:           var(--color-bg);
+  --bg-page:      var(--color-bg);
+  --bg-raised:    var(--color-surface);
+  --bg-surface:   var(--color-surface);
+  --bg-overlay:   #03030a;
+  --surface:      var(--color-surface-2);
+  --surface-bd:   #2a2a3a;
+  --border:       var(--color-border);
+  --border-sub:   var(--color-border-subtle);
+  --border-faint: #0e0e0e;
+  --text:         var(--color-text-primary);
+  --text-head:    var(--color-text-primary);
+  --text-label:   var(--color-text-secondary);
+  --text-muted:   var(--color-text-secondary);
+  --text-dim:     var(--color-text-muted);
+  --text-ghost:   var(--color-text-dim);
+  --accent:       var(--color-accent);
+  --accent-soft:  var(--color-green);
+  --accent-bg:    #4ade8018;
+  --accent-bd:    #4ade8044;
+  --accent-bd2:   #4ade8088;
+  --danger:       var(--color-red);
+  --danger-alpha: #f8717144;
+  --danger-glow:  #ef000066;
+  --warn:         var(--color-amber);
+  --warn-bg:      #1a130a;
+  --warn-bd:      #fbbf2444;
+  --warn-bg2:     #fbbf2418;
+  --info:         var(--color-blue);
+  --n-900: #080808;
+  --n-800: #111111;
+  --n-700: #1a1a1a;
+  --n-600: #2a2a2a;
+  --n-500: var(--color-text-muted);
+  --n-400: var(--color-text-secondary);
+  --n-300: var(--color-text-secondary);
+  --n-200: var(--color-text-secondary);
+  --n-100: #aaaaaa;
+  /* Text size scale — legacy aliases */
+  --text-2xs: var(--text-xs);
+  --text-val: var(--dash-value-size);
+  /* Spacing — legacy aliases */
+  --sp-1: var(--space-1);
+  --sp-2: var(--space-2);
+  --sp-3: var(--space-3);
+  --sp-4: var(--space-4);
+  --sp-5: clamp(20px, 2.5vw, 28px);
+  --sp-6: var(--space-6);
+}

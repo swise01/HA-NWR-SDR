@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Car — Pink Pig · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  .page { max-width: 1280px; margin: 0 auto; padding: var(--space-4); }
+  a { color: inherit; }
+
+  .crumb {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    padding: var(--space-2) 0;
+  }
+  .crumb:hover { color: var(--color-text-primary); }
+
+  /* ─── Title strip ───────────────────────────────────────────────── */
+  .titlewrap {
+    display: flex; align-items: baseline; gap: var(--space-3);
+    flex-wrap: wrap;
+    padding-bottom: 4px;
+  }
+  .nickname {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+    margin: 0;
+  }
+  .canonical { font-size: var(--text-md); color: var(--color-text-secondary); }
+  .class-badge {
+    display: inline-block; padding: 2px 8px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .pi-badge {
+    display: inline-block; padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px; font-size: 11px;
+    color: var(--color-text-secondary);
+  }
+  .drivetrain {
+    font-size: 11px; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    padding: 4px 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .subtitle .dot { color: #444; margin: 0 8px; }
+
+  /* ─── Hero ──────────────────────────────────────────────────────── */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: var(--space-6);
+    padding: var(--space-6) 0;
+    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+  }
+  .hero-time { font-size: clamp(40px, 5.5vw, 72px); font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+  .hero-time-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .hero-time-sub a { color: var(--color-accent); text-decoration: none; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+  }
+  .stat {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+  }
+  .stat-label { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat-value { font-size: var(--text-lg); font-weight: 500; margin-top: 4px; }
+
+  /* ─── AI insight ────────────────────────────────────────────────── */
+  .insight {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .insight-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-2);
+  }
+  .insight-head h2 {
+    font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .insight-head .meta { font-size: 11px; color: var(--color-text-quaternary); }
+  .insight-body {
+    font-size: var(--text-md); line-height: 1.6;
+    color: var(--color-text-primary); font-style: italic;
+    max-width: 70ch;
+  }
+
+  /* ─── Per-track table ───────────────────────────────────────────── */
+  .tracks-wrap { padding: var(--space-4) 0; border-bottom: 1px solid var(--color-border); }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-3);
+  }
+  .section-head h2 {
+    font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .section-head .count { font-size: 11px; color: var(--color-text-quaternary); }
+
+  .track-list { display: flex; flex-direction: column; gap: 4px; }
+  .track-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 140px 100px 60px;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 14px var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color 120ms, background 120ms;
+  }
+  .track-row:hover { border-color: var(--color-text-secondary); background: var(--color-surface-2); }
+  .track-name { font-size: var(--text-md); font-weight: 500; }
+  .track-meta { font-size: 11px; color: var(--color-text-quaternary); margin-top: 2px; }
+  .track-pb { font-size: var(--text-md); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+  .track-gap { font-size: var(--text-sm); text-align: right; color: var(--color-red); font-variant-numeric: tabular-nums; }
+  .track-gap.tight { color: var(--color-amber); }
+  .track-gap.zero { color: var(--color-green); }
+  .track-sessions { font-size: var(--text-sm); color: var(--color-text-secondary); text-align: right; }
+  .track-arrow { color: #555; text-align: right; }
+  .track-row:hover .track-arrow { color: var(--color-text-primary); }
+
+  /* ─── Recent sessions strip ─────────────────────────────────────── */
+  .recent { padding-top: var(--space-4); }
+  .recent-list { display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-3); }
+  .recent-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 110px 80px 60px;
+    gap: var(--space-3); align-items: center;
+    padding: 10px var(--space-3);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+    transition: background 120ms;
+  }
+  .recent-row:hover { background: var(--color-surface); }
+  .recent-row.is-best { background: rgba(232,184,75,0.05); }
+  .recent-date { font-size: var(--text-sm); color: var(--color-text-secondary); }
+  .recent-date small { display: block; font-size: 10px; color: var(--color-text-quaternary); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; margin-top: 2px; }
+  .recent-track { font-size: var(--text-sm); color: var(--color-text-primary); }
+  .recent-cond { font-size: 11px; color: var(--color-text-quaternary); }
+  .recent-time { font-size: var(--text-sm); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+  .recent-arrow { text-align: right; color: #555; }
+
+  /* ─── Top bar (global nav) ──────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand {
+    font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.01em;
+    color: var(--color-text-primary); text-decoration: none;
+  }
+  .brand .dot { color: var(--color-accent); }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: 999px;
+    font-size: 11px; color: var(--color-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+  .topbar .spacer { flex: 1; }
+  .top-nav { display: inline-flex; gap: var(--space-3); }
+  .top-nav a {
+    font-size: var(--text-sm); color: var(--color-text-secondary);
+    padding: 6px 10px; border-radius: 6px; text-decoration: none;
+  }
+  .top-nav a:hover { color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a; border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber); font-size: 11px;
+    padding: 6px 12px; text-align: center;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .track-row { grid-template-columns: 1fr auto; row-gap: 6px; }
+    .track-row .track-sessions, .track-row .track-arrow, .track-row .track-gap { display: none; }
+    .recent-row { grid-template-columns: 1fr auto; }
+    .recent-row .recent-cond, .recent-row .recent-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">car detail mock · static data · /static/car-mock.html · ordinal 2989</div>
+
+<div class="page">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="topbar">
+    <a href="/static/home-mock.html" class="brand">pacefinder<span class="dot">.</span></a>
+    <span class="status"><span class="status-dot"></span>Idle · waiting for telemetry</span>
+    <span class="spacer"></span>
+    <span class="top-nav">
+      <a href="/dashboard">Live dashboard</a>
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+    </span>
+  </div>
+
+  <a href="/static/home-mock.html" class="crumb">← All cars</a>
+
+  <div class="titlewrap">
+    <h1 class="nickname">Pink Pig</h1>
+    <span class="canonical">2019 Porsche 911 GT3 R</span>
+    <span class="class-badge">R</span>
+    <span class="pi-badge">PI 850</span>
+    <span class="drivetrain">RWD</span>
+  </div>
+  <div class="subtitle">
+    12 sessions<span class="dot">·</span>78 laps<span class="dot">·</span>4h 12m total
+  </div>
+
+  <!-- ─── HERO ─── -->
+  <div class="hero">
+    <div>
+      <div class="hero-time">1:41.892</div>
+      <div class="hero-time-sub">
+        Best ever — <a href="/static/circuit-mock.html">Le Mans</a> · Apr 12
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-label">Tracks driven</div>
+        <div class="stat-value">4</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Avg lap</div>
+        <div class="stat-value">1:43.6</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Best class rank</div>
+        <div class="stat-value">2<span style="color:var(--color-text-quaternary);font-size:14px;font-weight:400">/12</span></div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Last driven</div>
+        <div class="stat-value">3 days ago</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── AI INSIGHT ─── -->
+  <div class="insight">
+    <div class="insight-head">
+      <h2>What this car wants from you</h2>
+      <div class="meta">— Claude · cached 2026-05-12</div>
+    </div>
+    <div class="insight-body">
+      "You're 4% off pace in damp conditions across all four tracks in this car —
+      not the GT3 R's fault. Heat the rears more than you think on out-laps;
+      your S2 times jump 0.4 s within two laps of tyre warm-up. Trail-brake
+      depth is your consistent strength here."
+    </div>
+  </div>
+
+  <!-- ─── PER-TRACK TABLE ─── -->
+  <div class="tracks-wrap">
+    <div class="section-head">
+      <h2>Tracks in this car</h2>
+      <div class="count">4 circuits</div>
+    </div>
+
+    <div class="track-list">
+
+      <a href="/static/circuit-mock.html" class="track-row">
+        <div>
+          <div class="track-name">Le Mans Full Circuit</div>
+          <div class="track-meta">6 sessions · 38 laps · last May 11</div>
+        </div>
+        <div class="track-pb">1:41.892</div>
+        <div class="track-gap tight">+0.31s</div>
+        <div class="track-sessions">6</div>
+        <div class="track-arrow">→</div>
+      </a>
+
+      <a href="/static/circuit-mock.html" class="track-row">
+        <div>
+          <div class="track-name">Suzuka Circuit</div>
+          <div class="track-meta">3 sessions · 24 laps · last May 02</div>
+        </div>
+        <div class="track-pb">2:08.412</div>
+        <div class="track-gap">+0.78s</div>
+        <div class="track-sessions">3</div>
+        <div class="track-arrow">→</div>
+      </a>
+
+      <a href="/static/circuit-mock.html" class="track-row">
+        <div>
+          <div class="track-name">Spa-Francorchamps</div>
+          <div class="track-meta">2 sessions · 12 laps · last Apr 18</div>
+        </div>
+        <div class="track-pb">2:18.701</div>
+        <div class="track-gap">+1.24s</div>
+        <div class="track-sessions">2</div>
+        <div class="track-arrow">→</div>
+      </a>
+
+      <a href="/static/circuit-mock.html" class="track-row">
+        <div>
+          <div class="track-name">Nordschleife</div>
+          <div class="track-meta">1 session · 4 laps · last Mar 02</div>
+        </div>
+        <div class="track-pb">6:42.124</div>
+        <div class="track-gap">+8.92s</div>
+        <div class="track-sessions">1</div>
+        <div class="track-arrow">→</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ─── RECENT SESSIONS ─── -->
+  <div class="recent">
+    <div class="section-head">
+      <h2>Recent sessions</h2>
+      <div class="count">showing 5 of 12</div>
+    </div>
+
+    <div class="recent-list">
+
+      <a href="/static/layer1-mock.html" class="recent-row">
+        <span class="recent-date">May 11<small>14:02</small></span>
+        <span class="recent-track">Le Mans</span>
+        <span class="recent-cond">Dry · Hard · 28°C</span>
+        <span class="recent-time">1:42.731</span>
+        <span class="recent-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="recent-row">
+        <span class="recent-date">May 02<small>16:30</small></span>
+        <span class="recent-track">Suzuka</span>
+        <span class="recent-cond">Dry · Med · 25°C</span>
+        <span class="recent-time">2:09.044</span>
+        <span class="recent-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="recent-row">
+        <span class="recent-date">Apr 28<small>19:14</small></span>
+        <span class="recent-track">Le Mans</span>
+        <span class="recent-cond">Damp · Med · 22°C</span>
+        <span class="recent-time">1:43.412</span>
+        <span class="recent-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="recent-row">
+        <span class="recent-date">Apr 18<small>20:08</small></span>
+        <span class="recent-track">Spa-Francorchamps</span>
+        <span class="recent-cond">Dry · Hard · 19°C</span>
+        <span class="recent-time">2:18.701</span>
+        <span class="recent-arrow">→</span>
+      </a>
+
+      <a href="/static/layer1-mock.html" class="recent-row is-best">
+        <span class="recent-date">Apr 12<small>15:42</small></span>
+        <span class="recent-track">Le Mans</span>
+        <span class="recent-cond">Dry · Hard · 26°C</span>
+        <span class="recent-time">1:41.892 ★</span>
+        <span class="recent-arrow">→</span>
+      </a>
+
+    </div>
+
+    <div style="margin-top:var(--space-3);text-align:center;">
+      <a href="#" style="font-size:var(--text-sm);color:var(--color-text-secondary);text-decoration:none;">All 12 sessions →</a>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

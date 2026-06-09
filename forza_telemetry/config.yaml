@@ -1,0 +1,71 @@
+name: Forza Telemetry
+version: "0.1.0"
+slug: forza_telemetry
+description: Forza Horizon UDP telemetry bridge with MQTT sensors and live dashboard
+url: https://github.com/swise01/HA-NWR-SDR/tree/main/forza_telemetry
+arch:
+  - amd64
+startup: services
+boot: auto
+init: false
+host_network: true
+ports:
+  5300/udp: 5300
+  5310/tcp: 5310
+ports_description:
+  5300/udp: Forza UDP Data Out
+  5310/tcp: Live telemetry dashboard
+map:
+  - type: addon_config
+    read_only: false
+options:
+  udp_port: 5300
+  web_port: 5310
+  mqtt_host: 10.0.1.100
+  mqtt_port: 1883
+  mqtt_username: mqtt
+  mqtt_password: ""
+  mqtt_topic_root: forza
+  mqtt_discovery_prefix: homeassistant
+  publish_hz: 10
+  idle_timeout_seconds: 2
+  rewind_hold_seconds: 6
+  redline_rpm_pct: 88
+  game_name: Forza Horizon
+  forward_targets: 127.0.0.1:8000
+  wled_host: 192.168.5.43
+  wled_tach_enabled: true
+  wled_update_hz: 4
+  wled_watchdog_seconds: 3
+  wled_restore_preset: 10
+  wled_top_mode: tach
+  wled_bottom_mode: tach
+  wled_stop_bar_start_led: 104
+  wled_stop_bar_end_led: 119
+  wled_reverse_brake_side_leds: 10
+schema:
+  udp_port: port
+  web_port: port
+  mqtt_host: str
+  mqtt_port: port
+  mqtt_username: str
+  mqtt_password: password
+  mqtt_topic_root: str
+  mqtt_discovery_prefix: str
+  publish_hz: int(1,20)
+  idle_timeout_seconds: int(1,30)
+  rewind_hold_seconds: int(0,15)
+  redline_rpm_pct: int(50,98)
+  game_name: str
+  forward_targets: str
+  wled_host: str
+  wled_tach_enabled: bool
+  wled_update_hz: int(1,30)
+  wled_watchdog_seconds: int(0,30)
+  wled_restore_preset: int(1,250)
+  wled_top_mode: str
+  wled_bottom_mode: str
+  wled_stop_bar_start_led: int(86,140)
+  wled_stop_bar_end_led: int(86,140)
+  wled_reverse_brake_side_leds: int(1,20)
+watchdog: true

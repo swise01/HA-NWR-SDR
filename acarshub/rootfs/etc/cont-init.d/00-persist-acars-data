@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+mkdir -p /data/acars /run
+
+if [ -d /run/acars ] && [ ! -L /run/acars ]; then
+  cp -a /run/acars/. /data/acars/ 2>/dev/null || true
+  rm -rf /run/acars
+fi
+
+ln -sfn /data/acars /run/acars

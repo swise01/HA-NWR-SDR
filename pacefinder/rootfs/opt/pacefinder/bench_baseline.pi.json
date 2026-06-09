@@ -1,0 +1,14 @@
+{
+  "_note": "Ground-truth absolute numbers from the Raspberry Pi (Sat May 19 2026). This file is informational — bench_baseline.json (the runner's own) is what `python3 bench_perf.py --check` compares against. Pi numbers are roughly 7-10x slower than a workstation runner; relative-regression detection still works on either.",
+  "ops": {
+    "db_tracks_index":         {"median_ms": 8.37, "p95_ms": 8.57, "bytes": 5120},
+    "db_sessions_list(2000)":  {"median_ms": 7.70, "p95_ms": 7.97, "bytes": 94618},
+    "db_career_kpis":          {"median_ms": 3.13, "p95_ms": 3.27},
+    "db_recent_sessions(8)":   {"median_ms": 2.03, "p95_ms": 2.15},
+    "db_needs_review_count":   {"median_ms": 2.42, "p95_ms": 2.60},
+    "db_sessions_since_count": {"median_ms": 1.75, "p95_ms": 1.95}
+  },
+  "config": {"sessions": 200, "tracks": 15, "cars": 8, "iters": 30},
+  "captured_on": "2026-05-19",
+  "host": "roger.local (Raspberry Pi)"
+}

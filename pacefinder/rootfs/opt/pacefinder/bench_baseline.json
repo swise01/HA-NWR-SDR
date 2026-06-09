@@ -1,0 +1,36 @@
+{
+  "ops": {
+    "db_tracks_index": {
+      "median_ms": 0.9002499999999913,
+      "p95_ms": 1.1661669999999402,
+      "bytes": 5154
+    },
+    "db_sessions_list(2000)": {
+      "median_ms": 0.6920834999999959,
+      "p95_ms": 0.8348750000000127,
+      "bytes": 94642
+    },
+    "db_career_kpis": {
+      "median_ms": 0.3208334999999507,
+      "p95_ms": 0.41437499999996685
+    },
+    "db_recent_sessions(8)": {
+      "median_ms": 0.24718749999996792,
+      "p95_ms": 0.2883750000000074
+    },
+    "db_needs_review_count": {
+      "median_ms": 0.26979200000004644,
+      "p95_ms": 0.4281250000000014
+    },
+    "db_sessions_since_count": {
+      "median_ms": 0.2289165000000093,
+      "p95_ms": 0.26324999999993715
+    }
+  },
+  "config": {
+    "sessions": 200,
+    "tracks": 15,
+    "cars": 8,
+    "iters": 30
+  }
+}

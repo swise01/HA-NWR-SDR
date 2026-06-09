@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pacefinder · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  .page { max-width: 1280px; margin: 0 auto; padding: var(--space-4); }
+  a { color: inherit; text-decoration: none; }
+
+  /* ─── Top bar ───────────────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand { font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.01em; }
+  .brand .dot { color: var(--color-accent); }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: 999px;
+    font-size: 11px; color: var(--color-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-text-muted);
+  }
+  .status.idle .status-dot { background: #555; }
+  .status.live .status-dot { background: var(--color-green); box-shadow: 0 0 8px var(--color-green); }
+  .spacer { flex: 1; }
+  .top-nav { display: inline-flex; gap: var(--space-3); }
+  .top-nav a {
+    font-size: var(--text-sm); color: var(--color-text-secondary);
+    padding: 6px 10px; border-radius: 6px;
+  }
+  .top-nav a:hover { color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Welcome strip ─────────────────────────────────────────────── */
+  .welcome {
+    padding: var(--space-6) 0 var(--space-4);
+  }
+  .welcome-eyebrow {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .welcome-title {
+    margin: 4px 0 0;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+  }
+
+  /* ─── Hero card: last session ───────────────────────────────────── */
+  .last-session {
+    display: block;
+    margin-bottom: var(--space-4);
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: border-color 120ms;
+  }
+  .last-session:hover { border-color: var(--color-text-secondary); }
+  .last-eyebrow {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .last-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr auto;
+    gap: var(--space-6);
+    align-items: center;
+  }
+  .last-time {
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 700; line-height: 1; letter-spacing: -0.02em;
+  }
+  .last-sub { font-size: var(--text-sm); color: var(--color-text-secondary); margin-top: 6px; }
+  .last-meta { display: flex; flex-direction: column; gap: 6px; }
+  .last-track { font-size: var(--text-lg); font-weight: 500; }
+  .last-car { font-size: var(--text-sm); color: var(--color-text-secondary); display: flex; align-items: center; gap: 8px; }
+  .class-badge {
+    display: inline-block; padding: 1px 6px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .last-cond { font-size: 11px; color: var(--color-text-quaternary); }
+  .last-arrow {
+    font-size: var(--text-2xl); color: #555;
+    align-self: center;
+  }
+  .last-session:hover .last-arrow { color: var(--color-text-primary); }
+
+  /* ─── Twin grid: circuits + cars ────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .panel-head h2 {
+    font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .panel-head a { font-size: 11px; color: var(--color-text-secondary); }
+  .panel-head a:hover { color: var(--color-accent); }
+
+  .panel-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 12px var(--space-4);
+    border-bottom: 1px solid var(--color-border-subtle);
+    transition: background 120ms;
+  }
+  .panel-row:hover { background: var(--color-surface-2); }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-name { font-size: var(--text-sm); font-weight: 500; }
+  .panel-meta { font-size: 11px; color: var(--color-text-quaternary); margin-top: 2px; }
+  .panel-pb { font-size: var(--text-md); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .panel-arrow { color: #555; font-size: var(--text-md); }
+  .panel-row:hover .panel-arrow { color: var(--color-text-primary); }
+
+  /* ─── Recent sessions ──────────────────────────────────────────── */
+  .recent {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--color-border);
+  }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-3);
+  }
+  .section-head h2 {
+    font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0;
+  }
+  .section-head a { font-size: 11px; color: var(--color-text-secondary); }
+  .section-head a:hover { color: var(--color-accent); }
+
+  .recent-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr 160px 90px 30px;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 12px var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    transition: background 120ms;
+  }
+  .recent-row:hover { background: var(--color-surface); }
+  .recent-date { font-size: var(--text-sm); color: var(--color-text-secondary); }
+  .recent-date small { display: block; font-size: 10px; color: var(--color-text-quaternary); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; margin-top: 2px; }
+  .recent-track { font-size: var(--text-sm); color: var(--color-text-primary); }
+  .recent-car { font-size: var(--text-sm); color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; }
+  .recent-cond { font-size: 11px; color: var(--color-text-quaternary); }
+  .recent-time { font-size: var(--text-sm); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+  .recent-arrow { color: #555; text-align: right; }
+  .recent-row:hover .recent-arrow { color: var(--color-text-primary); }
+
+  /* ─── Footer strip ──────────────────────────────────────────────── */
+  .footstrip {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: var(--space-4) 0;
+    margin-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+    font-size: 11px; color: var(--color-text-quaternary);
+    flex-wrap: wrap; gap: var(--space-3);
+  }
+  .footstrip .links { display: inline-flex; gap: var(--space-3); }
+  .footstrip a:hover { color: var(--color-text-primary); }
+  .footstrip .pi-stats { display: inline-flex; gap: var(--space-4); }
+  .footstrip .pi-stats span strong { color: var(--color-text-secondary); font-weight: 500; }
+
+  /* ─── Mock note ─────────────────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a; border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber); font-size: 11px;
+    padding: 6px 12px; text-align: center;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 760px) {
+    .last-grid { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; }
+    .recent-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+    .recent-row .recent-track, .recent-row .recent-cond, .recent-row .recent-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">main landing mock · static data · /static/home-mock.html · idle state</div>
+
+<div class="page">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="topbar">
+    <a href="/static/home-mock.html" class="brand">pacefinder<span class="dot">.</span></a>
+    <span class="status idle">
+      <span class="status-dot"></span>
+      Idle · waiting for telemetry
+    </span>
+    <span class="spacer"></span>
+    <span class="top-nav">
+      <a href="/dashboard">Live dashboard</a>
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+    </span>
+  </div>
+
+  <!-- ─── WELCOME ─── -->
+  <div class="welcome">
+    <div class="welcome-eyebrow">Last drove 3 days ago · Le Mans</div>
+    <h1 class="welcome-title">Welcome back.</h1>
+  </div>
+
+  <!-- ─── HERO: LAST SESSION ─── -->
+  <a href="/static/layer1-mock.html" class="last-session">
+    <div class="last-eyebrow">Pick up where you left off</div>
+    <div class="last-grid">
+      <div>
+        <div class="last-time">1:42.731</div>
+        <div class="last-sub">Best lap · L4 of 9 · +0.84s vs your PB here</div>
+      </div>
+      <div class="last-meta">
+        <div class="last-track">Le Mans Full Circuit</div>
+        <div class="last-car">
+          Pink Pig <span class="class-badge">R</span>
+          <span style="color:var(--color-text-quaternary)">·</span> 850 PI
+        </div>
+        <div class="last-cond">Dry · Hard · 28°C · Practice · May 11</div>
+      </div>
+      <div class="last-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- ─── TWIN GRID: CIRCUITS + CARS ─── -->
+  <div class="grid">
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Top circuits</h2>
+        <a href="/static/home-mock.html">All circuits →</a>
+      </div>
+      <a href="/static/circuit-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Le Mans Full Circuit</div>
+          <div class="panel-meta">8 sessions · 47 laps</div>
+        </div>
+        <div class="panel-pb">1:41.892</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/circuit-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Suzuka Circuit</div>
+          <div class="panel-meta">5 sessions · 32 laps</div>
+        </div>
+        <div class="panel-pb">2:08.412</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/circuit-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Spa-Francorchamps</div>
+          <div class="panel-meta">3 sessions · 18 laps</div>
+        </div>
+        <div class="panel-pb">2:18.701</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/circuit-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Watkins Glen</div>
+          <div class="panel-meta">2 sessions · 14 laps</div>
+        </div>
+        <div class="panel-pb">1:41.234</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/circuit-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Nordschleife</div>
+          <div class="panel-meta">1 session · 4 laps</div>
+        </div>
+        <div class="panel-pb">6:42.124</div>
+        <div class="panel-arrow">→</div>
+      </a>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Top cars</h2>
+        <a href="/static/home-mock.html">All cars →</a>
+      </div>
+      <a href="/static/car-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Pink Pig <span class="class-badge" style="margin-left:6px">R</span></div>
+          <div class="panel-meta">12 sessions · 78 laps · 911 GT3 R</div>
+        </div>
+        <div class="panel-pb">1:41.892</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/car-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Cayman GT4 <span class="class-badge" style="margin-left:6px;background:#60a5fa">S</span></div>
+          <div class="panel-meta">6 sessions · 41 laps · 718 Cayman GT4</div>
+        </div>
+        <div class="panel-pb">1:48.231</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/car-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Yellow Mustang <span class="class-badge" style="margin-left:6px;background:#60a5fa">S</span></div>
+          <div class="panel-meta">4 sessions · 28 laps · Mustang GT</div>
+        </div>
+        <div class="panel-pb">1:52.014</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/car-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Civic <span class="class-badge" style="margin-left:6px;background:var(--color-text-tertiary);color:#000">A</span></div>
+          <div class="panel-meta">3 sessions · 22 laps · Civic Type R</div>
+        </div>
+        <div class="panel-pb">1:58.412</div>
+        <div class="panel-arrow">→</div>
+      </a>
+      <a href="/static/car-mock.html" class="panel-row">
+        <div>
+          <div class="panel-name">Demio <span class="class-badge" style="margin-left:6px;background:var(--color-text-quaternary);color:#fff">D</span></div>
+          <div class="panel-meta">2 sessions · 11 laps · Mazda Demio</div>
+        </div>
+        <div class="panel-pb">2:14.207</div>
+        <div class="panel-arrow">→</div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- ─── RECENT SESSIONS ─── -->
+  <div class="recent">
+    <div class="section-head">
+      <h2>Recent sessions</h2>
+      <a href="#">All 47 →</a>
+    </div>
+
+    <a href="/static/layer1-mock.html" class="recent-row">
+      <span class="recent-date">May 11<small>14:02</small></span>
+      <span class="recent-track">Le Mans</span>
+      <span class="recent-car">Pink Pig <span class="class-badge">R</span></span>
+      <span class="recent-cond">Dry · Hard · 28°C</span>
+      <span class="recent-time">1:42.731</span>
+      <span class="recent-arrow">→</span>
+    </a>
+
+    <a href="/static/layer1-mock.html" class="recent-row">
+      <span class="recent-date">May 02<small>16:30</small></span>
+      <span class="recent-track">Suzuka</span>
+      <span class="recent-car">Pink Pig <span class="class-badge">R</span></span>
+      <span class="recent-cond">Dry · Med · 25°C</span>
+      <span class="recent-time">2:09.044</span>
+      <span class="recent-arrow">→</span>
+    </a>
+
+    <a href="/static/layer1-mock.html" class="recent-row">
+      <span class="recent-date">Apr 28<small>19:14</small></span>
+      <span class="recent-track">Le Mans</span>
+      <span class="recent-car">Pink Pig <span class="class-badge">R</span></span>
+      <span class="recent-cond">Damp · Med · 22°C</span>
+      <span class="recent-time">1:43.412</span>
+      <span class="recent-arrow">→</span>
+    </a>
+
+    <a href="/static/layer1-mock.html" class="recent-row">
+      <span class="recent-date">Apr 18<small>20:08</small></span>
+      <span class="recent-track">Spa</span>
+      <span class="recent-car">Pink Pig <span class="class-badge">R</span></span>
+      <span class="recent-cond">Dry · Hard · 19°C</span>
+      <span class="recent-time">2:18.701</span>
+      <span class="recent-arrow">→</span>
+    </a>
+
+    <a href="/static/layer1-mock.html" class="recent-row">
+      <span class="recent-date">Apr 12<small>15:42</small></span>
+      <span class="recent-track">Le Mans</span>
+      <span class="recent-car">Pink Pig <span class="class-badge">R</span></span>
+      <span class="recent-cond">Dry · Hard · 26°C</span>
+      <span class="recent-time">1:41.892 ★</span>
+      <span class="recent-arrow">→</span>
+    </a>
+  </div>
+
+  <!-- ─── FOOTER ─── -->
+  <div class="footstrip">
+    <div class="links">
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+      <a href="/debug/perf">Performance</a>
+    </div>
+    <div class="pi-stats">
+      <span>UDP <strong>18,219</strong> pkts received</span>
+      <span>Last packet <strong>3d ago</strong></span>
+      <span>Storage <strong>2.1 GB</strong> / 28.5 GB</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

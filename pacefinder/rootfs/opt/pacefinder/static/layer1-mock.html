@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Layer 1 — Post-Race Headline · mock</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--space-4);
+  }
+
+  /* ─── Header strip ──────────────────────────────────────────────── */
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: border-color 120ms;
+  }
+  a.pill { cursor: pointer; color: var(--color-text-secondary); }
+  a.pill:hover { border-color: #2a2a2a; }
+  .pill .label { color: #777; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
+  .pill .val { color: var(--color-text-primary); }
+  .pill .class-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: var(--color-accent);
+    color: #000;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .pill .pi { color: var(--color-text-secondary); font-size: 11px; }
+  .pill.type-practice { border-color: #2a3a4a; color: var(--color-blue); }
+  .strip .spacer { flex: 1; }
+  .edit-btn {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+
+  /* ─── Hero ──────────────────────────────────────────────────────── */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: var(--space-6);
+    padding: var(--space-6) 0;
+    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+  }
+  .hero-numbers {}
+  .hero-time {
+    font-size: clamp(40px, 5.5vw, 72px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-time-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .hero-gap {
+    margin-top: var(--space-4);
+    font-size: clamp(20px, 2.8vw, 32px);
+    color: var(--color-red);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-gap-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .hero-chart {
+    position: relative;
+    width: 100%;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .chart-title { font-size: var(--text-xs); color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .toggle {
+    display: inline-flex;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 11px;
+  }
+  .toggle button {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: none;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit;
+    border-right: 1px solid var(--color-border);
+  }
+  .toggle button:last-child { border-right: none; }
+  .toggle button.on { background: var(--color-surface-2); color: var(--color-text-primary); }
+
+  .delta-svg { display: block; width: 100%; height: 180px; }
+  .sector-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    margin-top: 10px;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-md);
+    text-align: center;
+  }
+  .sector-row .lbl { font-size: 10px; color: var(--color-text-quaternary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .sector-row .val { font-weight: 500; }
+  .sector-row .val.faster { color: var(--color-green); }
+  .sector-row .val.slower { color: var(--color-red); }
+  .sector-row .val.flat { color: var(--color-text-secondary); }
+
+  /* ─── Three cards ───────────────────────────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card-title { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+  .card-headline { font-size: var(--text-lg); font-weight: 500; line-height: 1.2; }
+  .card-headline em { font-style: normal; color: var(--color-red); }
+  .card-body { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.5; }
+  .card-link {
+    margin-top: auto;
+    font-size: var(--text-sm);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .card-link:hover { text-decoration: underline; }
+  .card-corner {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #2a1a1a;
+    border-radius: 3px;
+    color: var(--color-red);
+    font-size: 11px;
+    margin-right: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .quote { font-style: italic; color: var(--color-text-primary); }
+
+  /* ─── Lap table ─────────────────────────────────────────────────── */
+  .laps {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .laps-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--space-3);
+  }
+  .laps-head h2 { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0; }
+  .laps-head a { font-size: var(--text-sm); color: var(--color-text-secondary); text-decoration: none; }
+  table.lap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  .lap-table th, .lap-table td {
+    text-align: right;
+    padding: 8px 14px;
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .lap-table th {
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 10px;
+    border-bottom-color: var(--color-border);
+    cursor: pointer;
+    user-select: none;
+    transition: color 120ms;
+  }
+  .lap-table th:hover { color: var(--color-text-primary); }
+  .lap-table th .sort-ind {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 9px;
+    opacity: 0.4;
+    transition: opacity 120ms, color 120ms;
+  }
+  .lap-table th:hover .sort-ind { opacity: 0.85; }
+  .lap-table th.sorted { color: var(--color-text-primary); }
+  .lap-table th.sorted .sort-ind {
+    opacity: 1;
+    color: var(--color-accent);
+  }
+  .lap-table th:first-child, .lap-table td:first-child { text-align: left; }
+  .lap-table tbody tr {
+    cursor: pointer;
+    transition: background 120ms;
+  }
+  .lap-table tbody tr:hover { background: var(--color-surface); }
+  .lap-table tr.best td { color: var(--color-text-primary); font-weight: 500; }
+  .lap-table tr.best td:first-child::after { content: '·'; margin-left: 8px; color: var(--color-accent); }
+  .laps-hint {
+    font-size: 11px;
+    color: var(--color-text-quaternary);
+    font-style: normal;
+  }
+  .laps-hint kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+  }
+  .lap-table .delta-pos { color: var(--color-red); }
+  .lap-table .delta-neg { color: var(--color-green); }
+  .lap-table .delta-zero { color: #555; }
+  .lap-table .tag {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #2a1a0a;
+    color: var(--color-amber);
+    font-size: 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .lap-table tr.more-row.hidden { display: none; }
+  .laps-toggle {
+    display: block;
+    width: 100%;
+    margin-top: var(--space-2);
+    background: transparent;
+    border: 1px dashed var(--color-border);
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    font: inherit;
+    font-size: var(--text-sm);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: border-color 120ms, color 120ms, background 120ms;
+  }
+  .laps-toggle:hover { border-color: var(--color-text-secondary); color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Drill-ins ─────────────────────────────────────────────────── */
+  .drills {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-4) 0 var(--space-6);
+  }
+  .drill {
+    display: block;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    transition: border-color 120ms, background 120ms;
+  }
+  .drill:hover { border-color: var(--color-text-secondary); background: var(--color-surface); }
+  .drill-title { font-size: var(--text-md); font-weight: 500; }
+  .drill-sub { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 4px; }
+
+  /* ─── Breadcrumb ────────────────────────────────────────────────── */
+  .crumb {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: var(--space-2) 0;
+  }
+  .crumb:hover { color: var(--color-text-primary); }
+
+  /* ─── Page head: H1 (track) + H2 (car link) ─────────────────────── */
+  .page-head {
+    padding: var(--space-4) 0 var(--space-3);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-4);
+    align-items: end;
+  }
+  .page-head-result { text-align: right; }
+  .result-eyebrow {
+    font-size: 10px; color: var(--color-text-quaternary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .result-positions {
+    font-size: clamp(20px, 2.6vw, 28px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-top: 4px;
+  }
+  .result-positions .arrow { color: var(--color-text-tertiary); margin: 0 6px; font-weight: 400; }
+  .result-positions .finish { color: var(--color-green); }
+  .result-positions .finish.lost { color: var(--color-red); }
+  .result-positions .finish.same { color: var(--color-text-primary); }
+  .result-delta {
+    font-size: var(--text-sm); color: var(--color-green);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .result-delta.lost { color: var(--color-red); }
+  .result-delta.same { color: var(--color-text-tertiary); }
+
+  /* ─── Session profile strip (session summary, sits under hero) ──── */
+  .profile {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--color-border-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-top: 0;
+    margin-bottom: var(--space-6);
+  }
+  .profile-cell {
+    background: var(--color-surface);
+    padding: 10px var(--space-3);
+    display: flex; flex-direction: column;
+    gap: 4px;
+  }
+  .profile-label {
+    font-size: 9px;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .profile-value {
+    font-size: var(--text-md);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .profile-bar {
+    height: 3px;
+    background: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+  .profile-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 2px;
+  }
+  .profile-bar.brake > span { background: var(--color-red); }
+  .profile-bar.slip > span  { background: var(--color-amber); }
+  .page-h1 {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .page-h2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: clamp(18px, 2.4vw, 22px);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 120ms;
+  }
+  .page-h2:hover { color: var(--color-text-primary); }
+  .page-h2-arrow {
+    color: var(--color-text-quaternary);
+    font-size: 16px;
+    transition: color 120ms, transform 120ms;
+  }
+  .page-h2:hover .page-h2-arrow {
+    color: var(--color-text-primary);
+    transform: translateX(3px);
+  }
+  .page-h2 .class-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    background: var(--color-accent); color: #000;
+    border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .page-h2 .pi {
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  /* ─── Subnav (views of this session) ────────────────────────────── */
+  .subnav {
+    display: flex; align-items: center; gap: 2px;
+    padding: 4px 0 var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .subnav-item {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    transition: color 120ms, background 120ms;
+  }
+  .subnav-item:hover { color: var(--color-text-primary); background: var(--color-surface); }
+  .subnav-item.active {
+    color: var(--color-text-primary);
+    background: var(--color-surface);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+  }
+
+  /* ─── Top bar (global nav) ──────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand {
+    font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.01em;
+    color: var(--color-text-primary); text-decoration: none;
+  }
+  .brand .dot { color: var(--color-accent); }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: 999px;
+    font-size: 11px; color: var(--color-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+  .status.live .status-dot { background: var(--color-green); box-shadow: 0 0 8px var(--color-green); }
+  .topbar .spacer { flex: 1; }
+  .top-nav { display: inline-flex; gap: var(--space-3); }
+  .top-nav a {
+    font-size: var(--text-sm); color: var(--color-text-secondary);
+    padding: 6px 10px; border-radius: 6px; text-decoration: none;
+  }
+  .top-nav a:hover { color: var(--color-text-primary); background: var(--color-surface); }
+
+  /* ─── Note bar (mock-only) ──────────────────────────────────────── */
+  .mock-note {
+    background: #1a1a0a;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-amber);
+    font-size: 11px;
+    padding: 6px 12px;
+    text-align: center;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Responsive ────────────────────────────────────────────────── */
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: 1fr; }
+    .drills { grid-template-columns: 1fr; }
+    .lap-table th:nth-child(5), .lap-table td:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-note">layer 1 spec mock · static data · /static/layer1-mock.html</div>
+
+<div class="page">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="topbar">
+    <a href="/static/home-mock.html" class="brand">pacefinder<span class="dot">.</span></a>
+    <span class="status"><span class="status-dot"></span>Idle · waiting for telemetry</span>
+    <span class="spacer"></span>
+    <span class="top-nav">
+      <a href="/dashboard">Live dashboard</a>
+      <a href="/setup">Setup</a>
+      <a href="/admin">Debug</a>
+    </span>
+  </div>
+
+  <a href="/static/circuit-mock.html" class="crumb">← Le Mans Full Circuit</a>
+
+  <!-- ─── SUBNAV (views of this session) ─── -->
+  <div class="subnav">
+    <span class="subnav-item active">Overview</span>
+    <a href="/static/telemetry-mock.html" class="subnav-item">Full telemetry</a>  </div>
+
+  <!-- ─── PAGE HEAD ─── -->
+  <div class="page-head">
+    <div>
+      <h1 class="page-h1">Le Mans Full Circuit</h1>
+      <a class="page-h2" href="/static/car-mock.html">
+        Pink Pig
+        <span class="class-badge">R</span>
+        <span class="pi">850</span>
+        <span class="page-h2-arrow">→</span>
+      </a>
+    </div>
+    <div class="page-head-result">
+      <div class="result-eyebrow">Grid → Finish</div>
+      <div class="result-positions">
+        P4 <span class="arrow">→</span> <span class="finish">P2</span>
+      </div>
+      <div class="result-delta">↗ 2 places gained</div>
+    </div>
+  </div>
+
+  <!-- ─── METADATA STRIP ─── -->
+  <div class="strip">
+    <span class="pill"><span class="label">When</span><span class="val">Sat May 11 · 14:02 – 14:34</span></span>
+    <span class="pill"><span class="label">Cond</span><span class="val">Dry · Hard · 28°C</span></span>
+    <span class="pill type-practice"><span class="val">AI Race · 9 vs 11</span></span>
+    <span class="spacer"></span>
+    <button class="edit-btn">Edit ⌃</button>
+  </div>
+
+  <!-- ─── HERO ─── -->
+  <div class="hero">
+    <div class="hero-numbers">
+      <div class="hero-time">1:42.731</div>
+      <div class="hero-time-sub">Best lap · L4 of 9</div>
+      <div class="hero-gap">+0.473s</div>
+      <div class="hero-gap-sub">left on the table vs theoretical</div>
+    </div>
+
+    <div class="hero-chart">
+      <div class="chart-header">
+        <div class="chart-title">Delta — best vs second-best</div>
+        <div class="toggle">
+          <button class="on">vs 2nd-best</button>
+          <button>vs last</button>
+          <button>vs theoretical</button>
+        </div>
+      </div>
+
+      <!-- Delta line SVG -->
+      <svg class="delta-svg" viewBox="0 0 1000 180" preserveAspectRatio="none">
+        <!-- Sector dividers -->
+        <line x1="333" y1="0"  x2="333" y2="180" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+        <line x1="666" y1="0"  x2="666" y2="180" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="3,4"/>
+
+        <!-- Zero line -->
+        <line x1="0" y1="90" x2="1000" y2="90" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="2,3"/>
+
+        <!-- Sector labels -->
+        <text x="166" y="14" fill="var(--color-text-quaternary)" font-size="10" text-anchor="middle" font-family="monospace" letter-spacing="0.1em">S1</text>
+        <text x="500" y="14" fill="var(--color-text-quaternary)" font-size="10" text-anchor="middle" font-family="monospace" letter-spacing="0.1em">S2</text>
+        <text x="833" y="14" fill="var(--color-text-quaternary)" font-size="10" text-anchor="middle" font-family="monospace" letter-spacing="0.1em">S3</text>
+
+        <!-- Slower fill (above zero) -->
+        <path d="
+          M 0 90
+          L 60 88 L 120 92 L 180 86 L 240 84 L 333 88
+          L 380 82 L 430 64 L 480 50 L 530 56 L 580 72 L 620 78 L 666 82
+          L 720 72 L 770 56 L 820 44 L 870 52 L 920 68 L 970 78 L 1000 84
+          L 1000 90 Z
+        " fill="url(#slowerGrad)" opacity="0.75"/>
+
+        <!-- Faster fill (S1, dip below zero) -->
+        <path d="
+          M 0 90
+          L 60 92 L 120 94 L 180 100 L 240 104 L 333 102
+          L 333 90 Z
+        " fill="url(#fasterGrad)" opacity="0.6"/>
+
+        <!-- The delta trace itself -->
+        <path d="
+          M 0 90
+          L 60 88 L 120 92 L 180 86 L 240 84 L 333 88
+          L 380 82 L 430 64 L 480 50 L 530 56 L 580 72 L 620 78 L 666 82
+          L 720 72 L 770 56 L 820 44 L 870 52 L 920 68 L 970 78 L 1000 84
+        " fill="none" stroke="#f87171" stroke-width="1.5"/>
+
+        <!-- Faster part of trace overlaid -->
+        <path d="
+          M 0 90
+          L 60 92 L 120 94 L 180 100 L 240 104 L 333 102
+        " fill="none" stroke="#4ade80" stroke-width="1.5"/>
+
+        <!-- Gradients -->
+        <defs>
+          <linearGradient id="slowerGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f87171" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#f87171" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="fasterGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#4ade80" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#4ade80" stop-opacity="0.05"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div class="sector-row">
+        <div>
+          <div class="val faster">−0.12</div>
+          <div class="lbl">S1 vs theoretical</div>
+        </div>
+        <div>
+          <div class="val slower">+0.34</div>
+          <div class="lbl">S2 vs theoretical</div>
+        </div>
+        <div>
+          <div class="val slower">+0.25</div>
+          <div class="lbl">S3 vs theoretical</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── LAP TIMES ─── -->
+  <div class="laps">
+    <!-- ─── SESSION PROFILE ─── -->
+    <div class="profile">
+      <div class="profile-cell">
+        <div class="profile-label">Throttle avg</div>
+        <div class="profile-value">64%</div>
+        <div class="profile-bar"><span style="width:64%"></span></div>
+      </div>
+      <div class="profile-cell">
+        <div class="profile-label">Brake avg</div>
+        <div class="profile-value">32%</div>
+        <div class="profile-bar brake"><span style="width:32%"></span></div>
+      </div>
+      <div class="profile-cell">
+        <div class="profile-label">Slip avg</div>
+        <div class="profile-value">0.18</div>
+        <div class="profile-bar slip"><span style="width:36%"></span></div>
+      </div>
+      <div class="profile-cell">
+        <div class="profile-label">Peak slip</div>
+        <div class="profile-value">0.41</div>
+        <div class="profile-bar slip"><span style="width:82%"></span></div>
+      </div>
+      <div class="profile-cell">
+        <div class="profile-label">Slip &gt; 0.1</div>
+        <div class="profile-value">23% of lap</div>
+        <div class="profile-bar slip"><span style="width:23%"></span></div>
+      </div>
+    </div>
+
+    <div class="laps-head">
+      <h2>Laps</h2>
+      <span class="laps-hint">Click a header to sort · click a row to inspect in telemetry</span>
+    </div>
+
+    <table class="lap-table">
+      <thead>
+        <tr>
+          <th class="sorted">Lap <span class="sort-ind">▲</span></th>
+          <th>Time <span class="sort-ind">↕</span></th>
+          <th>S1 Δ <span class="sort-ind">↕</span></th>
+          <th>S2 Δ <span class="sort-ind">↕</span></th>
+          <th>S3 Δ <span class="sort-ind">↕</span></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="lap-tbody">
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=1'">
+          <td>L1</td>
+          <td>1:48.142</td>
+          <td class="delta-pos">+1.21</td>
+          <td class="delta-pos">+2.04</td>
+          <td class="delta-pos">+2.16</td>
+          <td><span class="tag">Out</span></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=2'">
+          <td>L2</td>
+          <td>1:44.601</td>
+          <td class="delta-pos">+0.43</td>
+          <td class="delta-pos">+0.68</td>
+          <td class="delta-pos">+0.76</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=3'">
+          <td>L3</td>
+          <td>1:43.412</td>
+          <td class="delta-pos">+0.12</td>
+          <td class="delta-pos">+0.32</td>
+          <td class="delta-pos">+0.27</td>
+          <td></td>
+        </tr>
+        <tr class="best" onclick="location.href='/static/telemetry-mock.html?lap=4'">
+          <td>L4</td>
+          <td>1:42.731</td>
+          <td class="delta-zero">—</td>
+          <td class="delta-zero">—</td>
+          <td class="delta-zero">—</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=5'">
+          <td>L5</td>
+          <td>1:43.812</td>
+          <td class="delta-pos">+0.21</td>
+          <td class="delta-pos">+0.44</td>
+          <td class="delta-pos">+0.42</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=6'">
+          <td>L6</td>
+          <td>1:43.687</td>
+          <td class="delta-pos">+0.18</td>
+          <td class="delta-pos">+0.38</td>
+          <td class="delta-pos">+0.39</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=7'">
+          <td>L7</td>
+          <td>1:43.204</td>
+          <td class="delta-pos">+0.05</td>
+          <td class="delta-pos">+0.41</td>
+          <td class="delta-pos">+0.21</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=8'">
+          <td>L8</td>
+          <td>1:44.018</td>
+          <td class="delta-pos">+0.32</td>
+          <td class="delta-pos">+0.51</td>
+          <td class="delta-pos">+0.44</td>
+          <td></td>
+        </tr>
+        <tr onclick="location.href='/static/telemetry-mock.html?lap=9'">
+          <td>L9</td>
+          <td>1:43.501</td>
+          <td class="delta-pos">+0.08</td>
+          <td class="delta-pos">+0.45</td>
+          <td class="delta-pos">+0.24</td>
+          <td><span class="tag">In</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+
+
+  <!-- ─── THREE CARDS ─── -->
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-title">Where you lost it</div>
+      <div class="card-headline"><em>3 corners</em> cost you 0.60 s</div>
+      <div class="card-body">
+        <span class="card-corner">T7 entry +0.23</span><br>
+        <span class="card-corner">T11 exit +0.19</span><br>
+        <span class="card-corner">T3 mid +0.18</span>
+      </div>
+      <a class="card-link" href="/static/telemetry-mock.html">View in telemetry →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Car context</div>
+      <div class="card-headline">Your <em>3rd-best</em> of 8 sessions in this car</div>
+      <div class="card-body">
+        Best ever in Pink Pig:<br>
+        <strong style="color:var(--color-text-primary)">1:41.892</strong>
+        — Le Mans, 2026-04-12
+      </div>
+      <a class="card-link" href="/static/car-mock.html">Show car history →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Coaching</div>
+      <div class="card-body quote">
+        "Trail-brake T7 too long — you carry brake to the apex; lift earlier and let the car rotate."
+      </div>
+      <div class="card-body" style="color:var(--color-text-quaternary);font-size:11px;">
+        — Claude · 2026-05-14
+      </div>
+      <a class="card-link" href="/static/layer1-mock.html">Read full analysis →</a>
+    </div>
+
+  </div>
+
+
+</div>
+
+</body>
+</html>

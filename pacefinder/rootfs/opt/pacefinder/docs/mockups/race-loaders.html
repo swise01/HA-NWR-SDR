@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pacefinder · Race Loader Mockups</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --border:#262626; --text:#e5e7eb; --muted:#71717a; --dim:#52525b;
+    --accent:#f59e0b; --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --amber:#f59e0b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'SF Mono',Menlo,Consolas,monospace;padding:32px;line-height:1.5}
+  h1{font-size:18px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:32px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:20px}
+  .card h2{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .card .name{font-size:16px;font-weight:bold;margin-bottom:14px;color:var(--text)}
+  .card .desc{font-size:11px;color:var(--dim);margin-top:14px;line-height:1.5}
+  .card .stage{height:120px;display:flex;align-items:center;justify-content:center;background:#050505;border:1px solid #1a1a1a;border-radius:4px;position:relative}
+
+  /* ─── 1. Rev Counter Sweep ────────────────────────────────── */
+  .rev{position:relative;width:120px;height:70px;overflow:hidden}
+  .rev svg{display:block}
+  .rev-needle{transform-origin:60px 60px;animation:rev-sweep 1.2s cubic-bezier(0.4,0,0.6,1) infinite alternate}
+  @keyframes rev-sweep{
+    0%{transform:rotate(-90deg)}
+    100%{transform:rotate(90deg)}
+  }
+  .rev-redzone{animation:rev-glow 1.2s ease-in-out infinite alternate}
+  @keyframes rev-glow{
+    0%,70%{filter:none}
+    90%,100%{filter:drop-shadow(0 0 4px var(--red))}
+  }
+
+  /* ─── 2. Christmas Tree ────────────────────────────────────── */
+  .tree{display:flex;flex-direction:column;gap:3px;padding:6px;background:#000;border:1px solid #1a1a1a;border-radius:3px}
+  .tree-row{width:60px;height:14px;background:#1a1a1a;border-radius:2px;display:flex;align-items:center;justify-content:center;gap:6px}
+  .tree-light{width:7px;height:7px;border-radius:50%;background:#2a0a0a}
+  .tree-row .tree-light{animation:tree-cycle 3s linear infinite}
+  .tree-row:nth-child(1) .tree-light{animation-delay:.0s}
+  .tree-row:nth-child(2) .tree-light{animation-delay:.4s}
+  .tree-row:nth-child(3) .tree-light{animation-delay:.8s}
+  .tree-row:nth-child(4) .tree-light{animation-delay:1.2s}
+  .tree-row:nth-child(5) .tree-light{animation-delay:1.6s}
+  @keyframes tree-cycle{
+    0%{background:#2a0a0a;box-shadow:none}
+    /* hold red until 2.2s of the 3s loop, then go green for 0.4s, then reset */
+    60%,73%{background:var(--red);box-shadow:0 0 4px var(--red)}
+    74%,86%{background:var(--green);box-shadow:0 0 6px var(--green)}
+    87%,100%{background:#2a0a0a;box-shadow:none}
+  }
+
+  /* ─── 3. Pit-stop tyre change ──────────────────────────────── */
+  .pit{display:grid;grid-template-columns:32px 32px;gap:14px;padding:18px;background:#0a0a0a;border-radius:6px;border:1px solid #1a1a1a}
+  .pit-tyre{position:relative;width:32px;height:32px}
+  .pit-tyre svg{display:block;width:100%;height:100%}
+  .pit-arc{stroke:var(--amber);stroke-width:4;stroke-linecap:round;fill:none;
+           stroke-dasharray:78.5;stroke-dashoffset:78.5;
+           transform:rotate(-90deg);transform-origin:50% 50%;
+           animation:pit-fill 3s ease-in-out infinite}
+  .pit-tyre.fl .pit-arc{animation-delay:.0s}
+  .pit-tyre.fr .pit-arc{animation-delay:.5s}
+  .pit-tyre.rr .pit-arc{animation-delay:1.0s}
+  .pit-tyre.rl .pit-arc{animation-delay:1.5s}
+  @keyframes pit-fill{
+    0%{stroke-dashoffset:78.5;stroke:var(--amber)}
+    50%{stroke-dashoffset:0;stroke:var(--amber)}
+    66%{stroke-dashoffset:0;stroke:var(--green);filter:drop-shadow(0 0 4px var(--green))}
+    100%{stroke-dashoffset:78.5;stroke:var(--amber);filter:none}
+  }
+
+  /* ─── 4. Lap counter tick ──────────────────────────────────── */
+  .lap{display:inline-flex;align-items:center;gap:4px;font-family:'SF Mono',monospace;font-size:24px;font-weight:bold;letter-spacing:1px;color:var(--text);
+       background:#0a0a0a;padding:6px 12px;border-radius:3px;border:1px solid #1a1a1a}
+  .lap-letter{color:var(--muted)}
+  .lap-num-window{display:inline-block;height:28px;width:18px;overflow:hidden;position:relative}
+  .lap-num-strip{position:absolute;top:0;left:0;display:flex;flex-direction:column;animation:lap-roll 9s steps(9) infinite}
+  .lap-num-strip span{height:28px;line-height:28px;text-align:center;display:block}
+  @keyframes lap-roll{
+    from{transform:translateY(0)}
+    to{transform:translateY(-252px)} /* 9 numbers × 28px */
+  }
+
+  /* ─── 5. Tyre warming ──────────────────────────────────────── */
+  .warm{display:grid;grid-template-columns:24px 24px;gap:4px}
+  .warm-cell{position:relative;width:24px;height:24px;border-radius:3px}
+  .warm-cell::after{content:'';position:absolute;inset:0;border-radius:3px;background:var(--blue);animation:warm-cycle 2s ease-in-out infinite}
+  .warm-cell.fl::after{animation-delay:.0s}
+  .warm-cell.fr::after{animation-delay:.5s}
+  .warm-cell.rl::after{animation-delay:1.5s}
+  .warm-cell.rr::after{animation-delay:1.0s}
+  @keyframes warm-cycle{
+    0%   {background:var(--blue)}
+    33%  {background:var(--green)}
+    66%  {background:var(--amber)}
+    100% {background:var(--blue)}
+  }
+
+  /* Reduced motion fallback — barber-pole bar for all loaders */
+  @media (prefers-reduced-motion: reduce){
+    .rev,.tree,.pit,.lap,.warm{display:none}
+    .stage::before{
+      content:'';display:block;width:80%;height:8px;border-radius:4px;
+      background:repeating-linear-gradient(45deg,var(--surface) 0 8px,var(--accent) 8px 16px);
+      background-size:200% 100%;animation:barber 1s linear infinite;
+    }
+    @keyframes barber{from{background-position:0 0}to{background-position:32px 0}}
+  }
+
+  /* Footer */
+  .footer{margin-top:36px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:11px}
+  .footer code{background:var(--surface);padding:2px 6px;border-radius:3px;font-size:11px}
+</style>
+</head>
+<body>
+  <h1>Pacefinder · Race Loader Mockups</h1>
+  <div class="sub">Spec: <code>docs/specs/inline-telemetry-and-race-loaders.md</code> · open this file in a browser to see each loader animated · all rendering is pure CSS keyframes, no JS.</div>
+
+  <div class="grid">
+
+    <!-- 1. Rev Counter Sweep -->
+    <div class="card">
+      <h2>Loader 1 of 5</h2>
+      <div class="name">Rev Counter Sweep</div>
+      <div class="stage">
+        <div class="rev">
+          <svg width="120" height="70" viewBox="0 0 120 70">
+            <!-- arc -->
+            <path d="M 10 60 A 50 50 0 0 1 110 60" stroke="#262626" stroke-width="4" fill="none"/>
+            <!-- redline arc -->
+            <path d="M 95 25 A 50 50 0 0 1 110 60" stroke="#ef4444" stroke-width="4" fill="none" class="rev-redzone"/>
+            <!-- amber arc -->
+            <path d="M 78 12 A 50 50 0 0 1 95 25" stroke="#f59e0b" stroke-width="4" fill="none"/>
+            <!-- green arc -->
+            <path d="M 10 60 A 50 50 0 0 1 78 12" stroke="#22c55e" stroke-width="4" fill="none" opacity=".4"/>
+            <!-- needle (pivots at 60,60, currently pointing left = -90°) -->
+            <line class="rev-needle" x1="60" y1="60" x2="60" y2="18" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>
+            <!-- pivot dot -->
+            <circle cx="60" cy="60" r="3" fill="#e5e7eb"/>
+          </svg>
+        </div>
+      </div>
+      <div class="desc">Use for short loads (&lt; 1 s). Sessions home / track / game pages, lap-times table, headline strip on Deep Dive.</div>
+    </div>
+
+    <!-- 2. Christmas Tree -->
+    <div class="card">
+      <h2>Loader 2 of 5</h2>
+      <div class="name">Christmas Tree (Starting Lights)</div>
+      <div class="stage">
+        <div class="tree">
+          <div class="tree-row"><span class="tree-light"></span><span class="tree-light"></span></div>
+          <div class="tree-row"><span class="tree-light"></span><span class="tree-light"></span></div>
+          <div class="tree-row"><span class="tree-light"></span><span class="tree-light"></span></div>
+          <div class="tree-row"><span class="tree-light"></span><span class="tree-light"></span></div>
+          <div class="tree-row"><span class="tree-light"></span><span class="tree-light"></span></div>
+        </div>
+      </div>
+      <div class="desc">Use for medium loads (1–3 s). Deep Dive tab first switch, Telemetry tab first switch. Lights drop red one-by-one then all flick green.</div>
+    </div>
+
+    <!-- 3. Pit-stop tyre change -->
+    <div class="card">
+      <h2>Loader 3 of 5</h2>
+      <div class="name">Pit-stop Tyre Change</div>
+      <div class="stage">
+        <div class="pit">
+          <div class="pit-tyre fl">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" stroke="#262626" stroke-width="3" fill="#0a0a0a"/><circle class="pit-arc" cx="16" cy="16" r="12.5"/></svg>
+          </div>
+          <div class="pit-tyre fr">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" stroke="#262626" stroke-width="3" fill="#0a0a0a"/><circle class="pit-arc" cx="16" cy="16" r="12.5"/></svg>
+          </div>
+          <div class="pit-tyre rl">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" stroke="#262626" stroke-width="3" fill="#0a0a0a"/><circle class="pit-arc" cx="16" cy="16" r="12.5"/></svg>
+          </div>
+          <div class="pit-tyre rr">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" stroke="#262626" stroke-width="3" fill="#0a0a0a"/><circle class="pit-arc" cx="16" cy="16" r="12.5"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="desc">Use for long loads (≥ 3 s). AI Coaching analysis. Each tyre fills clockwise FL → FR → RR → RL, then flashes green.</div>
+    </div>
+
+    <!-- 4. Lap counter tick -->
+    <div class="card">
+      <h2>Loader 4 of 5</h2>
+      <div class="name">Lap Counter Tick</div>
+      <div class="stage">
+        <div class="lap">
+          <span class="lap-letter">L</span>
+          <span class="lap-num-window">
+            <span class="lap-num-strip">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span>
+            </span>
+          </span>
+        </div>
+      </div>
+      <div class="desc">Use as in-row skeleton placeholder. Lap-times table while waiting for /sessions/session/data, per-lap rows in events list.</div>
+    </div>
+
+    <!-- 5. Tyre warming -->
+    <div class="card">
+      <h2>Loader 5 of 5</h2>
+      <div class="name">Tyre Warming</div>
+      <div class="stage">
+        <div class="warm">
+          <div class="warm-cell fl"></div>
+          <div class="warm-cell fr"></div>
+          <div class="warm-cell rl"></div>
+          <div class="warm-cell rr"></div>
+        </div>
+      </div>
+      <div class="desc">Ambient page-level loader. Session detail initial load. Each corner cycles cold → optimal → hot, slightly out of phase, ripples through the grid.</div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>Try <strong>System Settings → Accessibility → Reduce Motion</strong> (macOS) or your OS equivalent — every loader collapses to a static barber-pole bar.</p>
+    <p style="margin-top:8px">Spec: <code>docs/specs/inline-telemetry-and-race-loaders.md</code></p>
+  </div>
+</body>
+</html>
