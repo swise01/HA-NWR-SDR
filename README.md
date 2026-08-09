@@ -1,4 +1,4 @@
-# HA-NWR-SDR v3
+# HA-NWR-SDR v4
 
 Local NOAA Weather Radio alerting for Home Assistant using an RTL-SDR, MQTT, and a small Debian-family Linux host.
 
@@ -8,7 +8,14 @@ RTL-SDR -> Linux parser -> MQTT -> Home Assistant integration
 
 The parser decodes SAME/EAS headers, publishes validated alert JSON, and hosts a live MP3 stream. The Home Assistant integration restores retained alert state without replaying old automation events.
 
-## v3 highlights
+## v4 highlights
+
+- One-command host installer for Debian, Ubuntu, and Raspberry Pi OS on x86_64 and ARM.
+- Safe upgrades that preserve `config.env` and restart only an already configured service.
+- `nwrctl` management CLI for checks, status, logs, configuration, and service control.
+- Fresh installs remain stopped until MQTT credentials are configured.
+
+## v3 radio and Home Assistant improvements
 
 - Edge-triggered Home Assistant events: retained MQTT state no longer replays notifications after a reload.
 - Expired, malformed, and invalid alert payloads are ignored.
@@ -30,7 +37,37 @@ The parser decodes SAME/EAS headers, publishes validated alert JSON, and hosts a
 
 SAME JSON includes the event code, originator, county codes, station, issued/received/expiry timestamps, duration, and raw SAME header.
 
-## Install the parser
+## Install the Linux or Raspberry Pi host
+
+Clone the repository on a Debian, Ubuntu, or Raspberry Pi OS host and run:
+
+```bash
+sudo ./install.sh install
+sudo nwrctl edit
+sudo nwrctl check
+sudo nwrctl enable
+```
+
+The installer adds the native RTL-SDR, SAME decoder, audio, Python, and MQTT tools; creates the unprivileged `nwr` account; builds an isolated Python environment; installs the systemd service; and prevents the DVB driver from claiming the radio. A reboot is recommended after the first install.
+
+To install a completed configuration and start immediately:
+
+```bash
+sudo ./install.sh install --config /path/to/config.env
+```
+
+To upgrade from a repository checkout while preserving configuration:
+
+```bash
+git pull --ff-only
+sudo ./install.sh update
+```
+
+Run `nwrctl help` for management commands. `nwrctl check` does not print the MQTT password.
+
+### Manual installation
+
+The automated installer is recommended. These commands document what it installs and are useful for custom layouts.
 
 Install Debian/Raspberry Pi OS packages:
 
@@ -112,6 +149,6 @@ The integration intentionally does not assume particular speakers, phones, light
 - [Configuration guide](CONFIGURATION.md)
 - [Home Assistant integration](docs/integration.md)
 - [Audio streaming](docs/audio_streaming.md)
-- [v3 architecture](docs/architecture.md)
+- [v4 architecture](docs/architecture.md)
 
 The old YAML event bridge was removed in v3 because it duplicated integration events and could not reliably model concurrent alerts. Use the custom integration as the supported Home Assistant interface.

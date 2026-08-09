@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+VERSION="4.0.0"
+SERVICE="nwr.service"
+CONFIG="${NWR_CONFIG:-/opt/nwr/config.env}"
+VENV="/opt/nwr_venv"
+
+usage() {
+  cat <<'EOF'
+NOAA Weather Radio SDR management CLI
+
+Usage: nwrctl COMMAND
+
+Commands:
+  status        Show service status
+  check         Validate the host, configuration, and service
+  logs          Follow service logs
+  start         Start the service
+  stop          Stop the service
+  restart       Restart the service
+  enable        Enable and start the service
+  disable       Disable and stop the service
+  edit          Edit /opt/nwr/config.env
+  version       Print the CLI version
+  help          Show this help
+EOF
+}
+
+need_root() {
+  [[ ${EUID:-$(id -u)} -eq 0 ]] || {
+    printf 'nwrctl: %s requires root; run sudo nwrctl %s\n' "$1" "$1" >&2
+    exit 1
+  }
+}
+
+config_value() {
+  local key=$1
+  sed -n "s/^${key}=//p" "$CONFIG" 2>/dev/null | head -n 1
+}
+
+check_host() {
+  local failures=0 command mqtt_host mqtt_port
+  printf 'HA-NWR-SDR host check\n'
+  for command in rtl_fm multimon-ng ffmpeg nc python3; do
+    if command -v "$command" >/dev/null; then
+      printf '  ok   %s\n' "$command"
+    else
+      printf '  FAIL %s is missing\n' "$command"
+      failures=$((failures + 1))
+    fi
+  done
+  if multimon-ng -a EAS -t raw /dev/null 2>&1 | grep -q 'EAS'; then
+    printf '  ok   multimon-ng EAS decoder\n'
+  else
+    printf '  FAIL multimon-ng lacks the EAS decoder\n'
+    failures=$((failures + 1))
+  fi
+  if [[ -x "$VENV/bin/python3" ]] && "$VENV/bin/python3" -c 'import paho.mqtt.client, dotenv' 2>/dev/null; then
+    printf '  ok   Python environment\n'
+  else
+    printf '  FAIL Python environment\n'
+    failures=$((failures + 1))
+  fi
+  if [[ -r "$CONFIG" ]]; then
+    printf '  ok   %s\n' "$CONFIG"
+    if [[ $(config_value MQTT_PASS) == change-me ]]; then
+      printf '  FAIL MQTT_PASS still uses the example value\n'
+      failures=$((failures + 1))
+    fi
+  else
+    printf '  FAIL %s is unreadable\n' "$CONFIG"
+    failures=$((failures + 1))
+  fi
+  mqtt_host=$(config_value MQTT_HOST)
+  mqtt_port=$(config_value MQTT_PORT)
+  if [[ -n "$mqtt_host" ]] && nc -z -w 3 "$mqtt_host" "${mqtt_port:-1883}" 2>/dev/null; then
+    printf '  ok   MQTT broker reachable at %s:%s\n' "$mqtt_host" "${mqtt_port:-1883}"
+  else
+    printf '  FAIL MQTT broker is unreachable\n'
+    failures=$((failures + 1))
+  fi
+  if systemctl is-active --quiet "$SERVICE"; then
+    printf '  ok   %s active\n' "$SERVICE"
+  else
+    printf '  WARN %s is not active\n' "$SERVICE"
+  fi
+  if ((failures > 0)); then
+    printf '%d required check(s) failed\n' "$failures" >&2
+    return 1
+  fi
+  printf 'All required checks passed\n'
+}
+
+command=${1:-help}
+case "$command" in
+  status) systemctl --no-pager --full status "$SERVICE" ;;
+  check) check_host ;;
+  logs) journalctl -u "$SERVICE" -f ;;
+  start|stop|restart) need_root "$command"; systemctl "$command" "$SERVICE" ;;
+  enable) need_root "$command"; systemctl enable --now "$SERVICE" ;;
+  disable) need_root "$command"; systemctl disable --now "$SERVICE" ;;
+  edit)
+    need_root "$command"
+    editor=${VISUAL:-${EDITOR:-editor}}
+    "$editor" "$CONFIG"
+    ;;
+  version) printf 'nwrctl %s\n' "$VERSION" ;;
+  help|-h|--help) usage ;;
+  *) printf 'nwrctl: unknown command: %s\n' "$command" >&2; usage >&2; exit 2 ;;
+esac

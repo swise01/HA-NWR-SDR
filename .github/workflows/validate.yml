@@ -24,7 +24,8 @@ jobs:
       - run: ruff check custom_components pi tests
       - run: pytest -q
       - run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - run: shellcheck pi/nwr-mqtt-audit.sh
+      - run: shellcheck install.sh pi/nwrctl pi/nwr-mqtt-audit.sh
+      - run: ./install.sh install --dry-run --skip-packages
 
   validate-hacs:
     runs-on: ubuntu-latest
