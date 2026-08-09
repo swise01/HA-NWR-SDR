@@ -8,6 +8,8 @@ Set `SDR_FREQUENCY` to the local NOAA Weather Radio transmitter. The seven chann
 
 Use a receiver serial in `SDR_DEVICE_INDEX` when multiple RTL-SDRs are attached. Start with moderate gain and adjust antenna placement before using maximum gain. Set `SDR_PPM` only after measuring the receiver's frequency error.
 
+Home Assistant can change frequency, gain, and PPM after the parser starts. A successful change is written atomically to `CONTROL_STATE_FILE` (normally `/var/lib/nwr/control.json`) and then applied by rebuilding the managed radio pipeline. These runtime values override their `config.env` defaults until the state file is removed. The installer creates the state directory for the unprivileged `nwr` account.
+
 ## County filtering
 
 `FIPS_FILTER` is a comma-separated list of six-digit SAME location codes:
@@ -30,6 +32,10 @@ MQTT_CA_CERT=/etc/ssl/certs/ca-certificates.crt
 ```
 
 The parser publishes alert and status messages with QoS 1. SAME state is retained only until its expiry. EOM is an edge event and is never retained.
+
+Home Assistant publishes control requests to `<root>/control/command`. The parser accepts only `restart`, `set_frequency`, `set_gain`, and `set_ppm`; ignores retained command messages; deduplicates QoS 1 request IDs; bounds every setting; and acknowledges the result on retained `<root>/control/state`. No MQTT payload is executed as a host command.
+
+Limit publish access to the command topic to trusted Home Assistant credentials with your MQTT broker ACL. The fixed command set prevents host command execution, but a trusted publisher can still retune or restart the radio pipeline.
 
 ## Audio URL
 
@@ -56,3 +62,5 @@ Leave `LOG_FILE` empty to use `journalctl -u nwr.service`. To keep a separate fi
 The integration's options allow both the MQTT topic root and effective test severity to be changed. Saving options automatically reloads the config entry.
 
 Use `nwr_same_alert_received` for new alerts. Retained state restores entities after Home Assistant restarts but deliberately does not fire that event again.
+
+The NOAA channel, gain, PPM, and restart entities use acknowledged parser state. A selected value does not update in Home Assistant until the parser validates and applies it.

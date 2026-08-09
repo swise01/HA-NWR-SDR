@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-INSTALLER_VERSION="4.0.0"
+INSTALLER_VERSION="4.1.0"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="/opt/nwr"
+STATE_DIR="/var/lib/nwr"
 VENV_DIR="/opt/nwr_venv"
 CONFIG_FILE="/opt/nwr/config.env"
 SERVICE_FILE="/etc/systemd/system/nwr.service"
@@ -106,6 +107,7 @@ install_account() {
     run usermod -aG plugdev nwr
   fi
   run install -d -o nwr -g nwr -m 0750 "$INSTALL_DIR"
+  run install -d -o nwr -g nwr -m 0750 "$STATE_DIR"
 }
 
 install_driver_policy() {
@@ -205,7 +207,7 @@ uninstall_all() {
   run rm -f "$SERVICE_FILE" "$CLI_FILE" "$INSTALL_DIR/nwr_parser.py" "$INSTALL_DIR/requirements.txt"
   run rm -rf "$VENV_DIR"
   run systemctl daemon-reload
-  log "Preserved $CONFIG_FILE and the nwr account; native packages were not removed"
+  log "Preserved $CONFIG_FILE, $STATE_DIR, and the nwr account; native packages were not removed"
 }
 
 parse_args() {

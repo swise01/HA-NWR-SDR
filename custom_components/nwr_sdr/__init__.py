@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -26,9 +27,17 @@ from .const import (
     EVENT_ALERT_RECEIVED,
     EVENT_EOM_RECEIVED,
     TOPIC_AUDIO_URL,
+    TOPIC_CONTROL_COMMAND,
+    TOPIC_CONTROL_STATE,
     TOPIC_EOM,
     TOPIC_SAME_ALERT,
     TOPIC_STATUS,
+)
+from .control import (
+    normalize_control_state,
+    normalize_frequency,
+    normalize_gain,
+    normalize_ppm,
 )
 from .payload import (
     alert_identity,
@@ -39,7 +48,13 @@ from .payload import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+]
 
 
 @dataclass
@@ -60,6 +75,7 @@ class NwrSdrRuntime:
     test_effective_severity: int = DEFAULT_TEST_EFFECTIVE_SEVERITY
     last_alert_id: str | None = None
     last_eom_id: str | None = None
+    control_state: dict[str, Any] = field(default_factory=dict)
 
     @property
     def topic_status(self) -> str:
@@ -76,6 +92,14 @@ class NwrSdrRuntime:
     @property
     def topic_eom(self) -> str:
         return f"{self.topic_root}/{TOPIC_EOM}"
+
+    @property
+    def topic_control_command(self) -> str:
+        return f"{self.topic_root}/{TOPIC_CONTROL_COMMAND}"
+
+    @property
+    def topic_control_state(self) -> str:
+        return f"{self.topic_root}/{TOPIC_CONTROL_STATE}"
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -112,6 +136,11 @@ class NwrSdrRuntime:
         )
         self.unsubscribers.append(
             await mqtt.async_subscribe(self.hass, self.topic_eom, self._message_eom)
+        )
+        self.unsubscribers.append(
+            await mqtt.async_subscribe(
+                self.hass, self.topic_control_state, self._message_control_state
+            )
         )
 
     async def async_stop(self) -> None:
@@ -180,6 +209,42 @@ class NwrSdrRuntime:
         if not is_replay and not is_duplicate:
             self.hass.bus.async_fire(EVENT_EOM_RECEIVED, {"eom_utc": eom_id})
         self.async_notify()
+
+    @callback
+    def _message_control_state(self, msg: mqtt.ReceiveMessage) -> None:
+        if not msg.payload:
+            return
+        try:
+            self.control_state = normalize_control_state(msg.payload)
+        except ValueError as exc:
+            _LOGGER.warning("Ignoring NWR control state on %s: %s", msg.topic, exc)
+            return
+        self.async_notify()
+
+    async def async_send_control(self, command: str, value: Any = None) -> str:
+        """Publish one allow-listed radio control command."""
+        if command == "set_frequency":
+            value = normalize_frequency(value)
+        elif command == "set_gain":
+            value = normalize_gain(value)
+        elif command == "set_ppm":
+            value = normalize_ppm(value)
+        elif command != "restart" or value is not None:
+            raise ValueError("unsupported radio control command")
+        payload: dict[str, Any] = {
+            "command": command,
+            "request_id": uuid.uuid4().hex,
+        }
+        if value is not None:
+            payload["value"] = value
+        await mqtt.async_publish(
+            self.hass,
+            self.topic_control_command,
+            json.dumps(payload, separators=(",", ":")),
+            qos=1,
+            retain=False,
+        )
+        return payload["request_id"]
 
     @callback
     def _schedule_expiry(self, expiry_utc: str | None) -> None:

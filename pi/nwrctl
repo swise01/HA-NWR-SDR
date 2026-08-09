@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="4.0.0"
+VERSION="4.1.0"
 SERVICE="nwr.service"
 CONFIG="${NWR_CONFIG:-/opt/nwr/config.env}"
 VENV="/opt/nwr_venv"

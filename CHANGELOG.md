@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.1.0 - Unreleased
+
+### Home Assistant controls
+
+- Add acknowledged entities for NOAA channel selection, SDR gain, PPM correction, and controlled pipeline restart.
+- Keep controls unavailable when the parser is offline or does not advertise the v4.1 control contract.
+- Add a dependency-free Lovelace dashboard example using standard Home Assistant cards.
+
+### Parser and host
+
+- Add a strict MQTT command allow list with bounded values, QoS 1 request deduplication, and retained result state.
+- Persist accepted frequency, gain, and PPM settings atomically under `/var/lib/nwr` and rebuild the pipeline without reporting an intentional restart as an error.
+- Ignore retained control requests and never execute command text from MQTT.
+
+### Documentation
+
+- Add safe agent installation instructions with discovery, backup, validation, dashboard, and rollback requirements.
+- Record the accepted modular v5 plan for Internet-only, external SDR, hybrid, and future direct-USB Home Assistant OS operation without advertising those modes as shipped v4.1 features.
+
 ## 4.0.0 - 2026-08-09
 
 ### Linux and Raspberry Pi hosts

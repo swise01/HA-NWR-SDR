@@ -1,4 +1,4 @@
-# v4 architecture
+# v4.1 architecture
 
 HA-NWR-SDR has two deliberately separate runtime layers.
 
@@ -17,6 +17,8 @@ It performs only radio decoding, timestamp reconstruction, county filtering, dup
 
 All pipeline children are one systemd control group. If any child exits, the parser terminates the rest and rebuilds the complete pipeline.
 
+The parser also owns the radio-control boundary. MQTT requests enter a fixed command allow list, are validated and deduplicated, and are handled on the pipeline thread rather than the MQTT callback thread. Accepted frequency, gain, and PPM values are stored in `/var/lib/nwr/control.json`; accepted changes cause a clean pipeline rebuild. The parser publishes the applied settings and last command result as retained state.
+
 ## Home Assistant integration
 
 The custom integration owns presentation and automation semantics:
@@ -26,5 +28,6 @@ The custom integration owns presentation and automation semantics:
 - restores retained alert state without replaying events
 - schedules alert expiry
 - exposes entities, events, options, and diagnostics
+- exposes bounded radio controls backed by parser acknowledgements
 
 This boundary allows a future HAOS add-on to replace the external Linux publisher while keeping the same MQTT contract and Home Assistant entities.

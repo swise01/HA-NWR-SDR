@@ -19,6 +19,8 @@ TOPIC_STATUS = "status"
 TOPIC_AUDIO_URL = "audio/url"
 TOPIC_SAME_ALERT = "alert/same"
 TOPIC_EOM = "alert/eom"
+TOPIC_CONTROL_COMMAND = "control/command"
+TOPIC_CONTROL_STATE = "control/state"
 
 ATTR_EVENT_CODE = "event_code"
 ATTR_EVENT_NAME = "event_name"

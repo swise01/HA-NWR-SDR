@@ -10,6 +10,10 @@ Topics published:
   nwr/alert/eom     JSON on NNNN (end of message) received
   nwr/audio/url     HTTP stream URL (on startup, retained)
   nwr/status        running / LWT offline (retained)
+  nwr/control/state acknowledged radio settings and command result (retained)
+
+Topic consumed:
+  nwr/control/command allow-listed radio settings or pipeline restart
 
 SAME JSON payload includes:
   issue_utc           — reconstructed from JJJHHMM field (NWS issue time)
@@ -20,15 +24,19 @@ SAME JSON payload includes:
 
 import json
 import logging
+import math
 import os
 import queue
 import re
 import socket
 import subprocess
+import tempfile
 import threading
 import time
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from dotenv import dotenv_values
@@ -47,6 +55,7 @@ SDR_RATE       = cfg.get("SDR_SAMPLE_RATE", "32000")
 SAME_RATE      = cfg.get("SAME_SAMPLE_RATE", "22050")
 SDR_GAIN       = cfg.get("SDR_GAIN", "28.0")
 SDR_PPM        = cfg.get("SDR_PPM", "0")
+CONTROL_STATE_FILE = cfg.get("CONTROL_STATE_FILE", "/var/lib/nwr/control.json")
 SDR_DEEMP      = cfg.get("SDR_DEEMPHASIS", "true").lower() in ("1", "true", "yes", "on")
 SDR_DC_BLOCK   = cfg.get("SDR_DC_BLOCK", "true").lower() in ("1", "true", "yes", "on")
 SDR_FIR        = cfg.get("SDR_FIR", "true").lower() in ("1", "true", "yes", "on")
@@ -62,6 +71,15 @@ MQTT_CLIENT_ID  = cfg.get(
 MQTT_TLS        = cfg.get("MQTT_TLS", "false").lower() in ("1", "true", "yes", "on")
 MQTT_CA_CERT    = cfg.get("MQTT_CA_CERT", "").strip()
 PIPELINE_POLL_SECONDS = 2.0
+
+NOAA_FREQUENCIES = (
+    "162.400M", "162.425M", "162.450M", "162.475M",
+    "162.500M", "162.525M", "162.550M",
+)
+GAIN_MIN = 0.0
+GAIN_MAX = 50.0
+PPM_MIN = -100
+PPM_MAX = 100
 
 TOPIC_ROOT = str(TOPIC_ROOT).strip().strip("/")
 if not TOPIC_ROOT or "+" in TOPIC_ROOT or "#" in TOPIC_ROOT or "//" in TOPIC_ROOT:
@@ -109,6 +127,181 @@ _last_eom_seen  = 0.0
 _alert_clear_timer = None
 _alert_clear_token = None
 _alert_clear_lock = threading.Lock()
+_control_queue = queue.Queue(maxsize=32)
+_control_lock = threading.Lock()
+_processed_request_ids = deque(maxlen=128)
+
+
+class PipelineRestart(Exception):
+    """Request an intentional radio pipeline rebuild."""
+
+
+def _normalize_frequency(value):
+    frequency = str(value).strip().upper()
+    if frequency not in NOAA_FREQUENCIES:
+        raise ValueError("frequency must be a NOAA Weather Radio channel")
+    return frequency
+
+
+def _normalize_gain(value):
+    if isinstance(value, bool):
+        raise ValueError("gain must be numeric")
+    try:
+        gain = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("gain must be numeric") from exc
+    if not math.isfinite(gain) or not GAIN_MIN <= gain <= GAIN_MAX:
+        raise ValueError(f"gain must be between {GAIN_MIN} and {GAIN_MAX}")
+    return round(gain, 1)
+
+
+def _normalize_ppm(value):
+    if isinstance(value, bool):
+        raise ValueError("PPM must be an integer")
+    try:
+        ppm_number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("PPM must be an integer") from exc
+    if not math.isfinite(ppm_number) or not ppm_number.is_integer():
+        raise ValueError("PPM must be an integer")
+    ppm = int(ppm_number)
+    if not PPM_MIN <= ppm <= PPM_MAX:
+        raise ValueError(f"PPM must be between {PPM_MIN} and {PPM_MAX}")
+    return ppm
+
+
+def _default_control_state():
+    return {
+        "frequency": _normalize_frequency(SDR_FREQ),
+        "gain": _normalize_gain(SDR_GAIN),
+        "ppm": _normalize_ppm(SDR_PPM),
+        "last_command": None,
+        "last_result": "ready",
+        "message": "Parser controls ready",
+        "request_id": None,
+    }
+
+
+def _load_control_state(path=None):
+    state = _default_control_state()
+    state_path = Path(path or CONTROL_STATE_FILE)
+    try:
+        saved = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(saved, dict):
+            raise ValueError("saved control state must be an object")
+        saved_settings = {
+            "frequency": _normalize_frequency(saved.get("frequency")),
+            "gain": _normalize_gain(saved.get("gain")),
+            "ppm": _normalize_ppm(saved.get("ppm")),
+        }
+        state.update(saved_settings)
+        state["message"] = "Restored persisted radio settings"
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        log.warning("Ignoring invalid control state %s: %s", state_path, exc)
+    return state
+
+
+_control_state = _load_control_state()
+
+
+def _control_settings_payload():
+    return {
+        "frequency": _control_state["frequency"],
+        "gain": _control_state["gain"],
+        "ppm": _control_state["ppm"],
+    }
+
+
+def _persist_control_state(path=None):
+    state_path = Path(path or CONTROL_STATE_FILE)
+    state_path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=".control-", dir=state_path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(_control_settings_payload(), handle, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_name, 0o600)
+        os.replace(temp_name, state_path)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _publish_control_state():
+    pub("control/state", _control_state, retain=True, qos=1)
+
+
+def _record_control_result(command, request_id, result, message):
+    with _control_lock:
+        _control_state.update({
+            "last_command": command,
+            "last_result": result,
+            "message": message,
+            "request_id": request_id,
+        })
+    _publish_control_state()
+
+
+def _queue_control_message(message):
+    if getattr(message, "retain", False) or not message.payload:
+        return
+    try:
+        payload = json.loads(message.payload)
+        if not isinstance(payload, dict):
+            raise ValueError("command payload must be an object")
+        command = payload.get("command")
+        request_id = payload.get("request_id")
+        if command not in ("restart", "set_frequency", "set_gain", "set_ppm"):
+            raise ValueError("unsupported command")
+        if command == "restart" and "value" in payload:
+            raise ValueError("restart does not accept a value")
+        if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
+            raise ValueError("request_id must be a 1-128 character string")
+        with _control_lock:
+            if request_id in _processed_request_ids:
+                return
+            _control_queue.put_nowait((command, payload.get("value"), request_id))
+            _processed_request_ids.append(request_id)
+    except (json.JSONDecodeError, TypeError, ValueError, queue.Full) as exc:
+        if isinstance(locals().get("payload"), dict):
+            request_id = payload.get("request_id")
+            command = payload.get("command")
+        else:
+            request_id = None
+            command = None
+        log.warning("Rejected control command: %s", exc)
+        _record_control_result(command, request_id, "error", str(exc))
+
+
+def _apply_control_command(command, value, request_id, state_path=None):
+    previous = _control_settings_payload()
+    try:
+        if command == "set_frequency":
+            _control_state["frequency"] = _normalize_frequency(value)
+        elif command == "set_gain":
+            _control_state["gain"] = _normalize_gain(value)
+        elif command == "set_ppm":
+            _control_state["ppm"] = _normalize_ppm(value)
+        elif command != "restart":
+            raise ValueError("unsupported command")
+        if command != "restart":
+            _persist_control_state(state_path)
+        _record_control_result(
+            command, request_id, "success", "Pipeline restart accepted"
+        )
+        return True
+    except (OSError, TypeError, ValueError) as exc:
+        _control_state.update(previous)
+        log.warning("Control command %s failed: %s", command, exc)
+        _record_control_result(command, request_id, "error", str(exc))
+        return False
 
 def _register_client(q):
     with _stream_lock:
@@ -279,6 +472,13 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.publish(f"{TOPIC_ROOT}/status", "running", qos=1, retain=True)
         client.publish(f"{TOPIC_ROOT}/alert/eom", payload=None, qos=1, retain=True)
         client.subscribe(f"{TOPIC_ROOT}/alert/same", qos=1)
+        client.subscribe(f"{TOPIC_ROOT}/control/command", qos=1)
+        client.publish(
+            f"{TOPIC_ROOT}/control/state",
+            json.dumps(_control_state, separators=(",", ":")),
+            qos=1,
+            retain=True,
+        )
     else:
         log.error("MQTT connect failed rc=%s", rc)
 
@@ -286,6 +486,9 @@ mq.on_connect = on_connect
 
 
 def on_message(client, userdata, message):
+    if message.topic == f"{TOPIC_ROOT}/control/command":
+        _queue_control_message(message)
+        return
     if message.topic != f"{TOPIC_ROOT}/alert/same" or not message.payload:
         return
     try:
@@ -445,9 +648,12 @@ def handle_eom():
     pub("alert/eom", {"eom_utc": now_utc.isoformat()}, retain=False, qos=1)
 
 def start_sdr_pipeline():
+    frequency = str(_control_state["frequency"])
+    gain = str(_control_state["gain"])
+    ppm = str(_control_state["ppm"])
     rtl_cmd = [
-        "rtl_fm", "-d", SDR_DEV, "-f", SDR_FREQ, "-M", "fm",
-        "-s", SDR_RATE, "-g", SDR_GAIN, "-p", SDR_PPM,
+        "rtl_fm", "-d", SDR_DEV, "-f", frequency, "-M", "fm",
+        "-s", SDR_RATE, "-g", gain, "-p", ppm,
     ]
     if SDR_FIR:
         rtl_cmd.extend(["-F", "9"])
@@ -475,7 +681,7 @@ def start_sdr_pipeline():
         "-af", "highpass=f=350,lowpass=f=2400,adeclick=t=2.0:b=4,afftdn=nf=-25,volume=6dB,alimiter=limit=0.92", "-f", "mp3", "-ab", "64k", "-ar", "22050", "pipe:1",
     ]
     log.info("Starting rtl_fm -> [raw+filtered SAME decoders + MP3 stream] on %s device=%s gain=%s ppm=%s rate=%s",
-             SDR_FREQ, SDR_DEV, SDR_GAIN, SDR_PPM, SDR_RATE)
+             frequency, SDR_DEV, gain, ppm, SDR_RATE)
     line_queue              = queue.Queue(maxsize=128)
     rtl_proc                = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     same_resample_proc      = subprocess.Popen(same_resampler_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -513,7 +719,11 @@ def start_sdr_pipeline():
     return line_queue, processes
 
 def main():
-    log.info("NWR parser starting — freq=%s FIPS filter=%s", SDR_FREQ, FIPS_FILTER or "none")
+    log.info(
+        "NWR parser starting — freq=%s FIPS filter=%s",
+        _control_state["frequency"],
+        FIPS_FILTER or "none",
+    )
     mq.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
     mq.loop_start()
     advertise_host = AUDIO_ADVERTISE_HOST
@@ -531,8 +741,16 @@ def main():
     while True:
         line_queue, processes = start_sdr_pipeline()
         pub("status", "running", retain=True, qos=1)
+        intentional_restart = False
         try:
             while True:
+                try:
+                    command, value, request_id = _control_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    if _apply_control_command(command, value, request_id):
+                        raise PipelineRestart(command)
                 try:
                     source, line = line_queue.get(timeout=PIPELINE_POLL_SECONDS)
                 except queue.Empty:
@@ -551,6 +769,9 @@ def main():
                     handle_zczc(_normalize_multimon_line(line))
                 elif "NNNN" in line:
                     handle_eom()
+        except PipelineRestart as exc:
+            intentional_restart = True
+            log.info("Rebuilding pipeline after control command: %s", exc)
         except Exception as exc:
             log.error("Pipeline error: %s — restarting in 5s", exc)
             pub("status", "error", retain=True, qos=1)
@@ -565,8 +786,9 @@ def main():
                     proc.wait(timeout=5)
                 except Exception:
                     pass
-        log.info("Restarting pipeline in 5 seconds...")
-        time.sleep(5)
+        if not intentional_restart:
+            log.info("Restarting pipeline in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == "__main__":
     main()

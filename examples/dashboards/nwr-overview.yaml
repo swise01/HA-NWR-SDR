@@ -1,0 +1,57 @@
+title: NOAA Weather Radio
+views:
+  - title: Overview
+    path: overview
+    icon: mdi:radio-tower
+    cards:
+      - type: entities
+        title: Receiver health
+        show_header_toggle: false
+        entities:
+          - entity: sensor.noaa_weather_radio_parser_status
+            name: Parser status
+            icon: mdi:radio-tower
+          - entity: sensor.noaa_weather_radio_audio_url
+            name: Audio stream
+            icon: mdi:volume-high
+          - entity: binary_sensor.noaa_weather_radio_alert_active
+            name: Alert active
+            icon: mdi:alert
+
+      - type: entities
+        title: Current alert
+        show_header_toggle: false
+        entities:
+          - entity: sensor.noaa_weather_radio_event_name
+            name: Event
+          - entity: sensor.noaa_weather_radio_effective_severity_label
+            name: Severity
+          - entity: sensor.noaa_weather_radio_county_codes
+            name: SAME counties
+          - entity: sensor.noaa_weather_radio_alert_issued
+            name: Issued
+          - entity: sensor.noaa_weather_radio_alert_expires
+            name: Expires
+
+      - type: entities
+        title: Radio receiver control
+        show_header_toggle: false
+        entities:
+          - entity: select.noaa_weather_radio_noaa_channel
+            name: NOAA channel
+            icon: mdi:radio-fm
+          - entity: number.noaa_weather_radio_sdr_gain
+            name: SDR gain
+            icon: mdi:tune-vertical
+          - entity: number.noaa_weather_radio_sdr_ppm_correction
+            name: Frequency correction (PPM)
+            icon: mdi:sine-wave
+          - entity: button.noaa_weather_radio_restart_radio_pipeline
+            name: Restart radio pipeline
+            icon: mdi:restart
+
+      - type: history-graph
+        title: Parser availability
+        hours_to_show: 24
+        entities:
+          - sensor.noaa_weather_radio_parser_status

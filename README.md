@@ -1,4 +1,4 @@
-# HA-NWR-SDR v4
+# HA-NWR-SDR v4.1
 
 Local NOAA Weather Radio alerting for Home Assistant using an RTL-SDR, MQTT, and a small Debian-family Linux host.
 
@@ -7,6 +7,13 @@ RTL-SDR -> Linux parser -> MQTT -> Home Assistant integration
 ```
 
 The parser decodes SAME/EAS headers, publishes validated alert JSON, and hosts a live MP3 stream. The Home Assistant integration restores retained alert state without replaying old automation events.
+
+## v4.1 highlights
+
+- Control the receiver from Home Assistant: select any of the seven NOAA channels, adjust bounded SDR gain and PPM correction, or restart the radio pipeline.
+- Commands use a narrow MQTT allow list with request IDs and retained acknowledgements; arbitrary host commands are never accepted.
+- Radio changes survive parser and host restarts in `/var/lib/nwr/control.json`.
+- Reusable Lovelace dashboard example and a safe playbook for agent-assisted installation.
 
 ## v4 highlights
 
@@ -34,6 +41,8 @@ The parser decodes SAME/EAS headers, publishes validated alert JSON, and hosts a
 | `nwr/audio/url` | yes | HTTP MP3 stream URL |
 | `nwr/alert/same` | until expiry | SAME alert JSON |
 | `nwr/alert/eom` | no | EOM timestamp JSON |
+| `nwr/control/command` | no | Allow-listed command JSON from Home Assistant |
+| `nwr/control/state` | yes | Acknowledged frequency, gain, PPM, and last result |
 
 SAME JSON includes the event code, originator, county codes, station, issued/received/expiry timestamps, duration, and raw SAME header.
 
@@ -83,6 +92,7 @@ echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
 sudo useradd --system --home-dir /opt/nwr --shell /usr/sbin/nologin nwr 2>/dev/null || true
 sudo usermod -aG plugdev nwr
 sudo install -d -o nwr -g nwr -m 0750 /opt/nwr
+sudo install -d -o nwr -g nwr -m 0750 /var/lib/nwr
 sudo python3 -m venv /opt/nwr_venv
 sudo /opt/nwr_venv/bin/pip install -r pi/requirements.txt
 ```
@@ -126,6 +136,8 @@ nwr_alert_expired
 
 Required Weekly/Monthly Tests remain tier 5/Test. The effective-severity option controls how strongly test events exercise your automations.
 
+The same device also exposes configuration entities for NOAA channel, SDR gain, SDR PPM correction, and a controlled pipeline restart. These controls appear available only after a v4.1-or-newer parser publishes its retained control state.
+
 ## Example automation
 
 ```yaml
@@ -150,5 +162,12 @@ The integration intentionally does not assume particular speakers, phones, light
 - [Home Assistant integration](docs/integration.md)
 - [Audio streaming](docs/audio_streaming.md)
 - [v4 architecture](docs/architecture.md)
+- [Dashboard example](examples/dashboards/nwr-overview.yaml)
+- [Agent-assisted installation](docs/agent-install.md)
+- [Modular v5 architecture plan](docs/modular-v5-plan.md)
+
+## Planned v5 source modes
+
+V4.1's supported alert source is an external Linux/RTL-SDR publisher. The accepted v5 design keeps one HACS integration and adds selectable Internet-only NWS API, external SDR, and hybrid modes. A direct-attached Home Assistant OS RTL-SDR will be handled by a companion supervised app using the same MQTT contract. These v5 modes are documented plans, not v4.1 features.
 
 The old YAML event bridge was removed in v3 because it duplicated integration events and could not reliably model concurrent alerts. Use the custom integration as the supported Home Assistant interface.

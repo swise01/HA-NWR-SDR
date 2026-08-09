@@ -13,10 +13,11 @@ cd "$ROOT_DIR"
 
 [[ $(stat -c '%U:%G:%a' /opt/nwr/nwr_parser.py) == root:nwr:750 ]]
 [[ $(stat -c '%U:%G:%a' /opt/nwr/config.env) == root:nwr:640 ]]
+[[ $(stat -c '%U:%G:%a' /var/lib/nwr) == nwr:nwr:750 ]]
 [[ $(stat -c '%U:%G:%a' /etc/systemd/system/nwr.service) == root:root:644 ]]
 [[ $(stat -c '%U:%G:%a' /usr/local/sbin/nwrctl) == root:root:755 ]]
 [[ -x /opt/nwr_venv/bin/python3 ]]
-[[ $(nwrctl version) == 'nwrctl 4.0.0' ]]
+[[ $(nwrctl version) == 'nwrctl 4.1.0' ]]
 if systemctl is-active --quiet nwr.service; then
   printf 'fresh install started nwr.service unexpectedly\n' >&2
   exit 1
@@ -44,6 +45,7 @@ config_after=$(sha256sum /opt/nwr/config.env)
 ./install.sh uninstall
 
 [[ -f /opt/nwr/config.env ]]
+[[ -d /var/lib/nwr ]]
 id nwr >/dev/null
 [[ ! -e /opt/nwr/nwr_parser.py ]]
 [[ ! -e /opt/nwr_venv ]]

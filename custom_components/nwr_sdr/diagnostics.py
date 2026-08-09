@@ -28,5 +28,6 @@ async def async_get_config_entry_diagnostics(
             "alert": alert,
             "eom_utc": runtime.eom_utc,
             "audio_url_configured": bool(runtime.audio_url),
+            "control_state": dict(runtime.control_state),
         },
     }
