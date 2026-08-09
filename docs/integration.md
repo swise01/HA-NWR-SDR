@@ -1,32 +1,19 @@
-# HACS Integration
+# Home Assistant integration
 
-The `nwr_sdr` integration is the common Home Assistant layer for both parser sources:
-
-- Raspberry Pi parser over MQTT
-- future HAOS NWR SDR add-on
-
-Both sources must publish the same normalized MQTT schema. The integration turns that schema into consistent Home Assistant entities and events.
+The `nwr_sdr` integration subscribes to the normalized MQTT contract and groups its entities under one NOAA Weather Radio device.
 
 ## Entities
 
-The integration creates:
-
-- `binary_sensor.nwr_alert_active`
-- parser status sensor
-- audio URL sensor
-- event code sensor
-- event name sensor
-- SAME severity sensor
-- SAME severity label sensor
-- effective severity sensor
-- effective severity label sensor
-- county code sensor
-- expiry sensor
-- EOM timestamp sensor
+- Alert active safety binary sensor
+- Parser status diagnostic enum
+- Audio URL diagnostic sensor
+- Event code and name
+- Actual SAME severity and label
+- Effective automation severity and label
+- County codes
+- Issued, received, expiry, and EOM timestamp sensors
 
 ## Events
-
-The integration fires:
 
 ```text
 nwr_same_alert_received
@@ -34,53 +21,8 @@ nwr_eom_received
 nwr_alert_expired
 ```
 
-Example automation:
+New non-retained messages create received/EOM events. Retained MQTT messages only restore entity state, preventing notification replays after Home Assistant or the integration restarts. Repeated SAME headers with the same identity are also deduplicated.
 
-```yaml
-trigger:
-  - platform: event
-    event_type: nwr_same_alert_received
-condition:
-  - condition: template
-    value_template: "{{ trigger.event.data.effective_severity | int <= 2 }}"
-action:
-  - service: notify.mobile_app_your_phone
-    data:
-      title: "NWR {{ trigger.event.data.event_name }}"
-      message: "{{ trigger.event.data.county_codes }}"
-```
+Expired alerts and malformed JSON are rejected. Unknown but well-formed three-character codes are surfaced as unknown warnings with a conservative tier 2 effective severity.
 
-## SAME Severity vs Effective Severity
-
-The integration keeps two severity concepts:
-
-- `severity`: the actual SAME tier from the event code
-- `effective_severity`: the tier users want automations to treat it as
-
-Required Weekly Test (`RWT`) and Required Monthly Test (`RMT`) always remain labeled as tests with actual tier 5.
-
-The options flow includes a slider for test effective severity:
-
-- `5`: tests behave like low-priority test events
-- `1`: tests propagate through automations like imminent-threat events
-
-This lets users verify the full alert path during weekly tests without pretending the event is not a test.
-
-## MQTT Contract
-
-Default topic root:
-
-```text
-nwr
-```
-
-Topics:
-
-```text
-nwr/status
-nwr/audio/url
-nwr/alert/same
-nwr/alert/eom
-```
-
-The Pi parser and HAOS add-on should both publish this same contract.
+Diagnostics are available from the integration entry. They omit the raw SAME header and audio URL.

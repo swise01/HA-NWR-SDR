@@ -1,131 +1,85 @@
-# HA-NWR-SDR v2
+# HA-NWR-SDR v3
 
-NOAA Weather Radio alerting for Home Assistant using an RTL-SDR on a Raspberry Pi and MQTT.
-
-v2 is focused on the architecture that is reliable today:
+Local NOAA Weather Radio alerting for Home Assistant using an RTL-SDR, MQTT, and a small Debian-family Linux host.
 
 ```text
-RTL-SDR -> Raspberry Pi parser -> MQTT -> HACS integration
+RTL-SDR -> Linux parser -> MQTT -> Home Assistant integration
 ```
 
-The parser decodes SAME/EAS headers from local NOAA Weather Radio, publishes structured alert JSON to MQTT, hosts a live MP3 stream, and keeps enough local logs to debug missed weekly tests after the fact. The Home Assistant integration consumes that same MQTT contract whether the publisher is the Pi parser or a future HAOS add-on.
+The parser decodes SAME/EAS headers, publishes validated alert JSON, and hosts a live MP3 stream. The Home Assistant integration restores retained alert state without replaying old automation events.
 
-## Status
+## v3 highlights
 
-Supported now:
+- Edge-triggered Home Assistant events: retained MQTT state no longer replays notifications after a reload.
+- Expired, malformed, and invalid alert payloads are ignored.
+- Complete operational NWR-SAME event codes from the National Weather Service.
+- Automatic integration reload after topic or test-severity option changes.
+- Timestamp entities, device grouping, translations, and downloadable diagnostics.
+- Child-process health monitoring and automatic SDR pipeline recovery.
+- Configurable PPM correction, MQTT client ID/TLS, and advertised audio URL.
+- Dedicated unprivileged `nwr` service account with hardened systemd settings.
 
-- Split Raspberry Pi plus Home Assistant over MQTT
-- RTL-SDR radio decode with `rtl_fm`, `ffmpeg`, and `multimon-ng`
-- Dual SAME decode paths: raw audio and filtered audio
-- Duplicate SAME/EOM suppression
-- NWS-issued expiry timestamps from SAME `JJJHHMM + valid duration`
-- Retained MQTT state for HA startup recovery
-- 30-day parser logs
-- 10-day MQTT event audit logs for `nwr/#`
-- HACS integration with common entities and events
-- Separate actual SAME severity and effective automation severity
-
-Planned separately:
-
-- Home Assistant OS add-on that runs the SDR/parser directly beside HA
-
-HACS alone is not the right place to run `rtl_fm`, claim USB SDR hardware, or manage long-running decoder processes. A direct HAOS install should be a Supervisor add-on. The HACS integration is the common Home Assistant layer for both sources.
-
-## MQTT Topics
-
-The v2 parser publishes:
+## MQTT contract
 
 | Topic | Retain | Payload |
 |---|---:|---|
 | `nwr/status` | yes | `running`, `offline`, or `error` |
 | `nwr/audio/url` | yes | HTTP MP3 stream URL |
-| `nwr/alert/same` | yes | SAME alert JSON |
-| `nwr/alert/eom` | yes | EOM JSON |
+| `nwr/alert/same` | until expiry | SAME alert JSON |
+| `nwr/alert/eom` | no | EOM timestamp JSON |
 
-SAME alert JSON includes:
+SAME JSON includes the event code, originator, county codes, station, issued/received/expiry timestamps, duration, and raw SAME header.
 
-- `event_code`
-- `org`
-- `counties`
-- `wfo`
-- `valid_hours`
-- `valid_mins`
-- `valid_seconds`
-- `issue_utc`
-- `issue_expiry_utc`
-- `true_remaining_secs`
-- `received_utc`
-- `raw`
+## Install the parser
 
-## Install: Raspberry Pi Parser
-
-Install OS packages:
+Install Debian/Raspberry Pi OS packages:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y rtl-sdr multimon-ng ffmpeg python3-venv python3-pip mosquitto-clients logrotate
+sudo apt-get install -y rtl-sdr multimon-ng ffmpeg netcat-openbsd python3-venv python3-pip mosquitto-clients
 ```
 
-Prevent the Linux DVB driver from claiming the RTL-SDR:
+Prevent the DVB driver from claiming the receiver and create the service account:
 
 ```bash
 echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
-sudo usermod -aG plugdev "$USER"
-sudo reboot
+sudo useradd --system --home-dir /opt/nwr --shell /usr/sbin/nologin nwr 2>/dev/null || true
+sudo usermod -aG plugdev nwr
+sudo install -d -o nwr -g nwr -m 0750 /opt/nwr
+sudo python3 -m venv /opt/nwr_venv
+sudo /opt/nwr_venv/bin/pip install -r pi/requirements.txt
 ```
 
-Install the parser:
+Install the files:
 
 ```bash
-sudo mkdir -p /opt/nwr
-sudo chown "$USER:$USER" /opt/nwr
-python3 -m venv /opt/nwr_venv
-/opt/nwr_venv/bin/pip install -r pi/requirements.txt
-cp pi/nwr_parser.py pi/nwr-mqtt-audit.sh /opt/nwr/
-cp pi/config.env.example /opt/nwr/config.env
-chmod +x /opt/nwr/nwr_parser.py /opt/nwr/nwr-mqtt-audit.sh
-```
-
-Edit `/opt/nwr/config.env` for your MQTT broker, SDR serial/index, NWR frequency, and county FIPS filter.
-
-Install services and log rotation:
-
-```bash
-sudo cp pi/nwr_parser.service /etc/systemd/system/nwr.service
-sudo cp pi/nwr-mqtt-audit.service /etc/systemd/system/
-sudo cp pi/logrotate-nwr /etc/logrotate.d/nwr
+sudo install -o root -g nwr -m 0750 pi/nwr_parser.py /opt/nwr/nwr_parser.py
+sudo install -o root -g nwr -m 0640 pi/config.env.example /opt/nwr/config.env
+sudo install -o root -g root -m 0644 pi/nwr_parser.service /etc/systemd/system/nwr.service
+sudoedit /opt/nwr/config.env
 sudo systemctl daemon-reload
-sudo systemctl enable --now nwr.service nwr-mqtt-audit.service
+sudo systemctl enable --now nwr.service
 ```
 
-Check live state:
+`/opt/nwr/config.env` contains the MQTT password and should remain mode `0640` or stricter. Reboot once after blacklisting the DVB driver or adding the service account to `plugdev`.
+
+Check operation:
 
 ```bash
-systemctl status nwr.service nwr-mqtt-audit.service
+systemctl status nwr.service
 journalctl -u nwr.service -f
-tail -f /home/$USER/logs/nwr/parser.log
-tail -f /home/$USER/logs/mqtt/pi-mqtt.log
 ```
 
-## Install: Home Assistant Integration
+The MP3 endpoint has no built-in authentication. Keep it on a trusted LAN or place it behind an authenticated reverse proxy. Set `AUDIO_STREAM_URL` when Home Assistant should use that proxy URL.
 
-Install this repository as a custom HACS integration:
+## Install the Home Assistant integration
 
-1. HACS -> Integrations -> three-dot menu -> Custom repositories.
-2. Repository: `https://github.com/swise01/HA-NWR-SDR`
-3. Category: Integration
-4. Install **HA-NWR-SDR**.
-5. Restart Home Assistant.
-6. Add **HA-NWR-SDR** from Home Assistant **Settings -> Devices & services**.
+1. In HACS, open **Integrations -> Custom repositories**.
+2. Add `https://github.com/swise01/HA-NWR-SDR` as an Integration.
+3. Install **HA-NWR-SDR**, restart Home Assistant, and add it from **Settings -> Devices & services**.
+4. Confirm the MQTT topic root, normally `nwr`.
 
-Configuration:
-
-- `topic_root`: default `nwr`
-- `test_effective_severity`: slider from 1 to 5
-
-Required Weekly Test and Required Monthly Test events always remain labeled as tests with actual SAME tier 5. The effective severity slider only controls how strongly tests propagate to automations. Set it to 1 when you want weekly tests to exercise the same automations as imminent-threat alerts.
-
-The integration creates common entities and fires:
+The integration creates a single NOAA Weather Radio device and fires:
 
 ```text
 nwr_same_alert_received
@@ -133,54 +87,31 @@ nwr_eom_received
 nwr_alert_expired
 ```
 
-Automate from those events however you want. This project does not assume you have any particular phone, speaker, relay board, alarm, or lighting setup.
+Required Weekly/Monthly Tests remain tier 5/Test. The effective-severity option controls how strongly test events exercise your automations.
 
-## Optional: YAML Bridge Package
-
-`homeassistant/packages/nwr.yaml` is a temporary bridge/example for users who do not want to install the custom integration yet. It follows the same event-first design.
-
-Do not install both the HACS integration and the YAML bridge package at the same time unless you intentionally want duplicate entities/events.
+## Example automation
 
 ```yaml
-homeassistant:
-  packages:
-    nwr: !include packages/nwr.yaml
+triggers:
+  - trigger: event
+    event_type: nwr_same_alert_received
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.effective_severity | int <= 2 }}"
+actions:
+  - action: notify.mobile_app_your_phone
+    data:
+      title: "NWR {{ trigger.event.data.event_name }}"
+      message: "{{ trigger.event.data.county_codes }}"
 ```
 
-Edit only the NWS zone placeholders, or remove the `rest:` block if you only want SAME/MQTT data.
+The integration intentionally does not assume particular speakers, phones, lights, sirens, or dashboards.
 
-Restart Home Assistant after editing.
+## Documentation
 
-## Weekly Test Debugging
+- [Configuration guide](CONFIGURATION.md)
+- [Home Assistant integration](docs/integration.md)
+- [Audio streaming](docs/audio_streaming.md)
+- [v3 architecture](docs/architecture.md)
 
-Most NWR weekly tests happen only once or twice per week, so v2 keeps durable logs:
-
-- Parser decode logs: `/home/<user>/logs/nwr/parser.log`
-- MQTT event audit: `/home/<user>/logs/mqtt/pi-mqtt.log`
-
-When a test fails, check the parser log first:
-
-- `multimon[raw]: ... ZCZC...` means the raw path decoded the header.
-- `multimon[filtered]: ... ZCZC...` means the filtered path decoded the header.
-- `EOM received` without a preceding `ZCZC` means the radio decoder heard the end marker but missed the header.
-- A line in `pi-mqtt.log` under `nwr/alert/same` means HA received an MQTT event to process.
-
-## HAOS Direct SDR
-
-Direct HAOS SDR support should be built as a Home Assistant add-on, not just HACS.
-
-Reason:
-
-- HACS custom integrations run inside Home Assistant Core.
-- SDR decoding needs USB hardware access, native packages, long-running child processes, and log rotation.
-- Supervisor add-ons are designed for that boundary.
-
-The likely future shape is:
-
-```text
-HAOS add-on: rtl_fm + ffmpeg + multimon-ng + parser
-HACS integration: common entities, events, setup flow, diagnostics, repairs
-YAML/dashboard: optional examples only
-```
-
-For now, the split Pi architecture is the supported v2 path.
+The old YAML event bridge was removed in v3 because it duplicated integration events and could not reliably model concurrent alerts. Use the custom integration as the supported Home Assistant interface.

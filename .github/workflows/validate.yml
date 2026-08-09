@@ -1,0 +1,39 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements_test.txt -r pi/requirements.txt
+      - run: python -m compileall -q custom_components pi tests
+      - run: ruff check custom_components pi tests
+      - run: pytest -q
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck pi/nwr-mqtt-audit.sh
+
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: home-assistant/actions/hassfest@master

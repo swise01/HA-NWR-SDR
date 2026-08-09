@@ -16,33 +16,25 @@ from homeassistant.helpers import event as event_helper
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ATTR_COUNTIES,
-    ATTR_COUNTY_CODES,
-    ATTR_EVENT_CODE,
-    ATTR_EVENT_NAME,
-    ATTR_EFFECTIVE_SEVERITY,
-    ATTR_EFFECTIVE_SEVERITY_LABEL,
     ATTR_EXPIRY_UTC,
-    ATTR_ISSUE_UTC,
-    ATTR_RAW,
-    ATTR_REMAINING_SECONDS,
-    ATTR_SEVERITY,
-    ATTR_SEVERITY_LABEL,
     CONF_TEST_EFFECTIVE_SEVERITY,
     CONF_TOPIC_ROOT,
     DEFAULT_TEST_EFFECTIVE_SEVERITY,
     DEFAULT_TOPIC_ROOT,
     DOMAIN,
-    EVENT_ALERT_RECEIVED,
     EVENT_ALERT_EXPIRED,
+    EVENT_ALERT_RECEIVED,
     EVENT_EOM_RECEIVED,
-    EVENT_NAMES,
-    SEVERITY_LABELS,
-    TIER_BY_CODE,
     TOPIC_AUDIO_URL,
     TOPIC_EOM,
     TOPIC_SAME_ALERT,
     TOPIC_STATUS,
+)
+from .payload import (
+    alert_identity,
+    normalize_alert_payload,
+    normalize_topic_root,
+    parse_utc,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,6 +58,8 @@ class NwrSdrRuntime:
     active_alert: bool = False
     alert: dict[str, Any] = field(default_factory=dict)
     test_effective_severity: int = DEFAULT_TEST_EFFECTIVE_SEVERITY
+    last_alert_id: str | None = None
+    last_eom_id: str | None = None
 
     @property
     def topic_status(self) -> str:
@@ -142,52 +136,49 @@ class NwrSdrRuntime:
 
     @callback
     def _message_same_alert(self, msg: mqtt.ReceiveMessage) -> None:
+        if not msg.payload:
+            return
         try:
-            payload = json.loads(msg.payload)
-        except json.JSONDecodeError:
-            _LOGGER.warning("Ignoring invalid NWR alert JSON on %s", msg.topic)
+            alert = normalize_alert_payload(
+                msg.payload, self.test_effective_severity
+            )
+        except ValueError as exc:
+            _LOGGER.warning("Ignoring NWR alert on %s: %s", msg.topic, exc)
             return
 
-        event_code = str(payload.get("event_code", "")).upper()
-        severity = TIER_BY_CODE.get(event_code, 4)
-        effective_severity = severity
-        if severity == 5:
-            effective_severity = self.test_effective_severity
-        event_name = EVENT_NAMES.get(event_code, f"Unknown Alert ({event_code})")
-        counties = payload.get("counties") or []
-        county_codes = ", ".join(str(county) for county in counties)
-
-        self.alert = {
-            **payload,
-            ATTR_EVENT_CODE: event_code,
-            ATTR_EVENT_NAME: event_name,
-            ATTR_SEVERITY: severity,
-            ATTR_SEVERITY_LABEL: SEVERITY_LABELS.get(severity, "Advisory"),
-            ATTR_EFFECTIVE_SEVERITY: effective_severity,
-            ATTR_EFFECTIVE_SEVERITY_LABEL: SEVERITY_LABELS.get(
-                effective_severity, "Advisory"
-            ),
-            ATTR_COUNTIES: counties,
-            ATTR_COUNTY_CODES: county_codes,
-            ATTR_ISSUE_UTC: payload.get("issue_utc"),
-            ATTR_EXPIRY_UTC: payload.get("issue_expiry_utc"),
-            ATTR_REMAINING_SECONDS: payload.get("true_remaining_secs"),
-            ATTR_RAW: payload.get("raw"),
-        }
+        message_id = alert_identity(alert)
+        is_replay = bool(getattr(msg, "retain", False))
+        is_duplicate = message_id == self.last_alert_id
+        self.alert = alert
         self.active_alert = True
+        self.last_alert_id = message_id
         self._schedule_expiry(self.alert.get(ATTR_EXPIRY_UTC))
-        self.hass.bus.async_fire(EVENT_ALERT_RECEIVED, self.alert)
+        if not is_replay and not is_duplicate:
+            self.hass.bus.async_fire(EVENT_ALERT_RECEIVED, self.alert)
         self.async_notify()
 
     @callback
     def _message_eom(self, msg: mqtt.ReceiveMessage) -> None:
+        if not msg.payload:
+            return
         try:
             payload = json.loads(msg.payload)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             payload = {"eom_utc": msg.payload}
-
-        self.eom_utc = payload.get("eom_utc")
-        self.hass.bus.async_fire(EVENT_EOM_RECEIVED, payload)
+        if not isinstance(payload, dict):
+            _LOGGER.warning("Ignoring invalid NWR EOM payload on %s", msg.topic)
+            return
+        eom_dt = parse_utc(payload.get("eom_utc"))
+        if eom_dt is None:
+            _LOGGER.warning("Ignoring invalid NWR EOM timestamp on %s", msg.topic)
+            return
+        eom_id = eom_dt.isoformat()
+        is_replay = bool(getattr(msg, "retain", False))
+        is_duplicate = eom_id == self.last_eom_id
+        self.eom_utc = eom_id
+        self.last_eom_id = eom_id
+        if not is_replay and not is_duplicate:
+            self.hass.bus.async_fire(EVENT_EOM_RECEIVED, {"eom_utc": eom_id})
         self.async_notify()
 
     @callback
@@ -210,6 +201,8 @@ class NwrSdrRuntime:
 
     @callback
     def _expire_alert(self, *_: Any) -> None:
+        if not self.active_alert:
+            return
         expired = dict(self.alert)
         self.active_alert = False
         self.alert = {}
@@ -220,7 +213,12 @@ class NwrSdrRuntime:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HA-NWR-SDR from a config entry."""
-    topic_root = entry.data.get(CONF_TOPIC_ROOT, DEFAULT_TOPIC_ROOT)
+    topic_root = normalize_topic_root(
+        entry.options.get(
+            CONF_TOPIC_ROOT,
+            entry.data.get(CONF_TOPIC_ROOT, DEFAULT_TOPIC_ROOT),
+        )
+    )
     test_effective_severity = entry.options.get(
         CONF_TEST_EFFECTIVE_SEVERITY,
         entry.data.get(CONF_TEST_EFFECTIVE_SEVERITY, DEFAULT_TEST_EFFECTIVE_SEVERITY),
@@ -234,8 +232,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await runtime.async_start()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration after its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -244,4 +248,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         runtime: NwrSdrRuntime = hass.data[DOMAIN].pop(entry.entry_id)
         await runtime.async_stop()
+        if not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN)
     return unload_ok

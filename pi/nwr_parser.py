@@ -18,19 +18,20 @@ SAME JSON payload includes:
   received_utc        — when Pi actually received the broadcast
 """
 
-import os
-import re
 import json
 import logging
+import os
 import queue
+import re
 import socket
 import subprocess
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from datetime import datetime, timedelta, timezone
-from dotenv import dotenv_values
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 import paho.mqtt.client as mqtt
+from dotenv import dotenv_values
 
 CFG_PATH = os.environ.get("NWR_CONFIG", "/opt/nwr/config.env")
 cfg = dotenv_values(CFG_PATH)
@@ -45,13 +46,26 @@ SDR_DEV        = cfg.get("SDR_DEVICE_INDEX", "0")
 SDR_RATE       = cfg.get("SDR_SAMPLE_RATE", "32000")
 SAME_RATE      = cfg.get("SAME_SAMPLE_RATE", "22050")
 SDR_GAIN       = cfg.get("SDR_GAIN", "28.0")
+SDR_PPM        = cfg.get("SDR_PPM", "0")
 SDR_DEEMP      = cfg.get("SDR_DEEMPHASIS", "true").lower() in ("1", "true", "yes", "on")
 SDR_DC_BLOCK   = cfg.get("SDR_DC_BLOCK", "true").lower() in ("1", "true", "yes", "on")
 SDR_FIR        = cfg.get("SDR_FIR", "true").lower() in ("1", "true", "yes", "on")
 FIPS_FILTER_RAW = cfg.get("FIPS_FILTER", "")
 AUDIO_PORT      = int(cfg.get("AUDIO_STREAM_PORT", 8765))
+AUDIO_STREAM_URL = cfg.get("AUDIO_STREAM_URL", "").strip()
+AUDIO_ADVERTISE_HOST = cfg.get("AUDIO_ADVERTISE_HOST", "").strip()
 LOG_LEVEL       = cfg.get("LOG_LEVEL", "INFO")
-LOG_FILE        = cfg.get("LOG_FILE", "/home/pi/logs/nwr/parser.log")
+LOG_FILE        = cfg.get("LOG_FILE", "")
+MQTT_CLIENT_ID  = cfg.get(
+    "MQTT_CLIENT_ID", f"nwr_same_parser-{socket.gethostname()}"
+).strip()
+MQTT_TLS        = cfg.get("MQTT_TLS", "false").lower() in ("1", "true", "yes", "on")
+MQTT_CA_CERT    = cfg.get("MQTT_CA_CERT", "").strip()
+PIPELINE_POLL_SECONDS = 2.0
+
+TOPIC_ROOT = str(TOPIC_ROOT).strip().strip("/")
+if not TOPIC_ROOT or "+" in TOPIC_ROOT or "#" in TOPIC_ROOT or "//" in TOPIC_ROOT:
+    raise ValueError("MQTT_TOPIC_ROOT must be non-empty and contain no wildcards")
 
 FIPS_FILTER = set(f.strip() for f in FIPS_FILTER_RAW.split(",") if f.strip())
 
@@ -92,6 +106,9 @@ _stream_clients = set()
 _stream_lock    = threading.Lock()
 _same_seen      = {}
 _last_eom_seen  = 0.0
+_alert_clear_timer = None
+_alert_clear_token = None
+_alert_clear_lock = threading.Lock()
 
 def _register_client(q):
     with _stream_lock:
@@ -156,7 +173,31 @@ def _ffmpeg_broadcast(ffmpeg_proc):
     except Exception as exc:
         log.error("ffmpeg broadcast error: %s", exc)
 
-def _tee_audio(rtl_proc, same_stdin_list, ffmpeg_stdin):
+def _report_pipeline_exit(line_queue, source, detail):
+    try:
+        line_queue.put_nowait(("__pipeline_exit__", f"{source}: {detail}"))
+    except queue.Full:
+        pass
+
+
+def _log_process_stderr(proc, source, line_queue):
+    try:
+        for raw_bytes in proc.stderr:
+            line = raw_bytes.decode("utf-8", errors="ignore").strip()
+            if line:
+                lowered = line.lower()
+                level = log.error if any(
+                    marker in lowered
+                    for marker in ("pll not locked", "failed", "error", "overflow", "lost")
+                ) else log.info
+                level("%s: %s", source, line)
+    except Exception as exc:
+        log.error("stderr reader failed for %s: %s", source, exc)
+    finally:
+        _report_pipeline_exit(line_queue, source, f"stderr closed rc={proc.poll()}")
+
+
+def _tee_audio(rtl_proc, same_stdin_list, ffmpeg_stdin, line_queue):
     try:
         while True:
             chunk = rtl_proc.stdout.read(AUDIO_CHUNK)
@@ -175,8 +216,10 @@ def _tee_audio(rtl_proc, same_stdin_list, ffmpeg_stdin):
                 pass
     except Exception as exc:
         log.error("Audio tee error: %s", exc)
+    finally:
+        _report_pipeline_exit(line_queue, "rtl_fm", f"audio ended rc={rtl_proc.poll()}")
 
-def _pipe_stream(src, dst):
+def _pipe_stream(src, dst, source, line_queue):
     try:
         while True:
             chunk = src.read(AUDIO_CHUNK)
@@ -185,7 +228,9 @@ def _pipe_stream(src, dst):
             dst.write(chunk)
             dst.flush()
     except Exception as exc:
-        log.error("Audio pipe error: %s", exc)
+        log.error("Audio pipe error on %s: %s", source, exc)
+    finally:
+        _report_pipeline_exit(line_queue, source, "audio pipe ended")
 
 def _read_multimon_lines(mm_proc, source, line_queue):
     try:
@@ -195,6 +240,10 @@ def _read_multimon_lines(mm_proc, source, line_queue):
                 line_queue.put((source, line))
     except Exception as exc:
         log.error("multimon reader error on %s decoder: %s", source, exc)
+    finally:
+        _report_pipeline_exit(
+            line_queue, f"multimon-{source}", f"output ended rc={mm_proc.poll()}"
+        )
 
 def _normalize_multimon_line(line):
     return line.replace("EAS: ", "").replace("SAME: ", "").strip()
@@ -213,30 +262,88 @@ def _recent_same(raw):
 
 try:
     mq = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
-                     client_id="nwr_same_parser", clean_session=True)
+                     client_id=MQTT_CLIENT_ID, clean_session=True)
 except AttributeError:
-    mq = mqtt.Client(client_id="nwr_same_parser", clean_session=True)
+    mq = mqtt.Client(client_id=MQTT_CLIENT_ID, clean_session=True)
 
 if MQTT_USER:
     mq.username_pw_set(MQTT_USER, MQTT_PASS)
+if MQTT_TLS:
+    mq.tls_set(ca_certs=MQTT_CA_CERT or None)
 mq.will_set(f"{TOPIC_ROOT}/status", payload="offline", retain=True)
 
 def on_connect(client, userdata, flags, rc, properties=None):
     code = rc if isinstance(rc, int) else rc.value
     if code == 0:
         log.info("MQTT connected to %s:%s", MQTT_HOST, MQTT_PORT)
-        client.publish(f"{TOPIC_ROOT}/status", "running", retain=True)
+        client.publish(f"{TOPIC_ROOT}/status", "running", qos=1, retain=True)
+        client.publish(f"{TOPIC_ROOT}/alert/eom", payload=None, qos=1, retain=True)
+        client.subscribe(f"{TOPIC_ROOT}/alert/same", qos=1)
     else:
         log.error("MQTT connect failed rc=%s", rc)
 
 mq.on_connect = on_connect
 
-def pub(topic, payload, retain=False):
+
+def on_message(client, userdata, message):
+    if message.topic != f"{TOPIC_ROOT}/alert/same" or not message.payload:
+        return
+    try:
+        payload = json.loads(message.payload)
+        expiry = datetime.fromisoformat(
+            str(payload["issue_expiry_utc"]).replace("Z", "+00:00")
+        )
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        remaining = int(
+            (expiry.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+        )
+        token = str(payload.get("raw") or payload["issue_expiry_utc"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        log.warning("Could not restore retained SAME expiry: %s", exc)
+        return
+    if remaining <= 0:
+        pub("alert/same", "", retain=True, qos=1)
+        log.info("Cleared stale retained SAME alert on MQTT reconnect")
+        return
+    _schedule_retained_alert_clear(token, remaining)
+    log.info("Restored retained SAME expiry timer with %ds remaining", remaining)
+
+
+mq.on_message = on_message
+
+def pub(topic, payload, retain=False, qos=0):
     full = f"{TOPIC_ROOT}/{topic}"
     if isinstance(payload, (dict, list)):
         payload = json.dumps(payload)
-    mq.publish(full, payload=str(payload), retain=retain)
+    result = mq.publish(full, payload=str(payload), qos=qos, retain=retain)
+    if result.rc != mqtt.MQTT_ERR_SUCCESS:
+        log.error("MQTT publish failed for %s rc=%s", full, result.rc)
     log.debug("MQTT -> %s : %s", full, str(payload)[:120])
+
+
+def _clear_retained_alert(token):
+    global _alert_clear_timer, _alert_clear_token
+    with _alert_clear_lock:
+        if token != _alert_clear_token:
+            return
+        pub("alert/same", "", retain=True, qos=1)
+        _alert_clear_timer = None
+        _alert_clear_token = None
+    log.info("Cleared expired retained SAME alert")
+
+
+def _schedule_retained_alert_clear(token, delay_seconds):
+    global _alert_clear_timer, _alert_clear_token
+    with _alert_clear_lock:
+        if _alert_clear_timer:
+            _alert_clear_timer.cancel()
+        _alert_clear_token = token
+        _alert_clear_timer = threading.Timer(
+            max(1, delay_seconds), _clear_retained_alert, args=(token,)
+        )
+        _alert_clear_timer.daemon = True
+        _alert_clear_timer.start()
 
 def handle_zczc(raw):
     """
@@ -318,7 +425,12 @@ def handle_zczc(raw):
              issue_expiry_utc.strftime("%H:%M UTC"),
              true_remaining_secs)
 
-    pub("alert/same", payload, retain=True)
+    if true_remaining_secs <= 0:
+        log.warning("Ignoring already-expired SAME alert %s", g["event"])
+        return
+
+    pub("alert/same", payload, retain=True, qos=1)
+    _schedule_retained_alert_clear(raw.strip(), true_remaining_secs)
 
 def handle_eom():
     global _last_eom_seen
@@ -330,12 +442,12 @@ def handle_eom():
 
     now_utc = datetime.now(timezone.utc)
     log.info("EOM received")
-    pub("alert/eom", {"eom_utc": now_utc.isoformat()}, retain=True)
+    pub("alert/eom", {"eom_utc": now_utc.isoformat()}, retain=False, qos=1)
 
 def start_sdr_pipeline():
     rtl_cmd = [
         "rtl_fm", "-d", SDR_DEV, "-f", SDR_FREQ, "-M", "fm",
-        "-s", SDR_RATE, "-g", SDR_GAIN,
+        "-s", SDR_RATE, "-g", SDR_GAIN, "-p", SDR_PPM,
     ]
     if SDR_FIR:
         rtl_cmd.extend(["-F", "9"])
@@ -346,60 +458,94 @@ def start_sdr_pipeline():
     rtl_cmd.append("-")
 
     same_resampler_cmd = [
-        "ffmpeg", "-loglevel", "quiet",
+        "ffmpeg", "-loglevel", "warning",
         "-f", "s16le", "-ar", SDR_RATE, "-ac", "1", "-i", "pipe:0",
         "-f", "s16le", "-ar", SAME_RATE, "-ac", "1", "pipe:1",
     ]
     same_filter_cmd = [
-        "ffmpeg", "-loglevel", "quiet",
+        "ffmpeg", "-loglevel", "warning",
         "-f", "s16le", "-ar", SDR_RATE, "-ac", "1", "-i", "pipe:0",
         "-af", "highpass=f=300,lowpass=f=2800,volume=6dB,alimiter=limit=0.95",
         "-f", "s16le", "-ar", SAME_RATE, "-ac", "1", "pipe:1",
     ]
     mm_cmd = ["multimon-ng", "-a", "EAS", "-t", "raw", "/dev/stdin"]
     ffmpeg_cmd = [
-        "ffmpeg", "-loglevel", "quiet",
+        "ffmpeg", "-loglevel", "warning",
         "-f", "s16le", "-ar", SDR_RATE, "-ac", "1", "-i", "pipe:0",
         "-af", "highpass=f=350,lowpass=f=2400,adeclick=t=2.0:b=4,afftdn=nf=-25,volume=6dB,alimiter=limit=0.92", "-f", "mp3", "-ab", "64k", "-ar", "22050", "pipe:1",
     ]
-    log.info("Starting rtl_fm -> [raw+filtered SAME decoders + MP3 stream] on %s device=%s gain=%s rate=%s",
-             SDR_FREQ, SDR_DEV, SDR_GAIN, SDR_RATE)
+    log.info("Starting rtl_fm -> [raw+filtered SAME decoders + MP3 stream] on %s device=%s gain=%s ppm=%s rate=%s",
+             SDR_FREQ, SDR_DEV, SDR_GAIN, SDR_PPM, SDR_RATE)
     line_queue              = queue.Queue(maxsize=128)
-    rtl_proc                = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    same_resample_proc      = subprocess.Popen(same_resampler_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    same_filter_proc        = subprocess.Popen(same_filter_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    mm_raw_proc             = subprocess.Popen(mm_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    mm_filtered_proc        = subprocess.Popen(mm_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    ffmpeg_proc             = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    rtl_proc                = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    same_resample_proc      = subprocess.Popen(same_resampler_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    same_filter_proc        = subprocess.Popen(same_filter_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    mm_raw_proc             = subprocess.Popen(mm_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    mm_filtered_proc        = subprocess.Popen(mm_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    ffmpeg_proc             = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     same_stdin_list = [same_resample_proc.stdin, same_filter_proc.stdin]
-    threading.Thread(target=_tee_audio, args=(rtl_proc, same_stdin_list, ffmpeg_proc.stdin), daemon=True, name="audio-tee").start()
-    threading.Thread(target=_pipe_stream, args=(same_resample_proc.stdout, mm_raw_proc.stdin), daemon=True, name="same-raw-pipe").start()
-    threading.Thread(target=_pipe_stream, args=(same_filter_proc.stdout, mm_filtered_proc.stdin), daemon=True, name="same-filtered-pipe").start()
+    threading.Thread(target=_tee_audio, args=(rtl_proc, same_stdin_list, ffmpeg_proc.stdin, line_queue), daemon=True, name="audio-tee").start()
+    threading.Thread(target=_pipe_stream, args=(same_resample_proc.stdout, mm_raw_proc.stdin, "same-raw-resampler", line_queue), daemon=True, name="same-raw-pipe").start()
+    threading.Thread(target=_pipe_stream, args=(same_filter_proc.stdout, mm_filtered_proc.stdin, "same-filtered-resampler", line_queue), daemon=True, name="same-filtered-pipe").start()
     threading.Thread(target=_read_multimon_lines, args=(mm_raw_proc, "raw", line_queue), daemon=True, name="same-raw-reader").start()
     threading.Thread(target=_read_multimon_lines, args=(mm_filtered_proc, "filtered", line_queue), daemon=True, name="same-filtered-reader").start()
     threading.Thread(target=_ffmpeg_broadcast, args=(ffmpeg_proc,), daemon=True, name="audio-broadcast").start()
-    return line_queue, rtl_proc, same_resample_proc, same_filter_proc, mm_raw_proc, mm_filtered_proc, ffmpeg_proc
+    for proc, source in (
+        (rtl_proc, "rtl_fm"),
+        (same_resample_proc, "ffmpeg-same-raw"),
+        (same_filter_proc, "ffmpeg-same-filtered"),
+        (ffmpeg_proc, "ffmpeg-stream"),
+    ):
+        threading.Thread(
+            target=_log_process_stderr,
+            args=(proc, source, line_queue),
+            daemon=True,
+            name=f"{source}-stderr",
+        ).start()
+    processes = (
+        rtl_proc,
+        same_resample_proc,
+        same_filter_proc,
+        mm_raw_proc,
+        mm_filtered_proc,
+        ffmpeg_proc,
+    )
+    return line_queue, processes
 
 def main():
     log.info("NWR parser starting — freq=%s FIPS filter=%s", SDR_FREQ, FIPS_FILTER or "none")
     mq.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
     mq.loop_start()
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-    except Exception:
-        local_ip = "127.0.0.1"
-    stream_url = f"http://{local_ip}:{AUDIO_PORT}/nwr.mp3"
+    advertise_host = AUDIO_ADVERTISE_HOST
+    if not advertise_host:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.connect((MQTT_HOST, MQTT_PORT))
+                advertise_host = sock.getsockname()[0]
+        except Exception:
+            advertise_host = socket.getfqdn()
+    stream_url = AUDIO_STREAM_URL or f"http://{advertise_host}:{AUDIO_PORT}/nwr.mp3"
     pub("audio/url", stream_url, retain=True)
     log.info("Audio stream URL: %s", stream_url)
     _start_audio_http_server()
     while True:
-        line_queue, rtl_proc, same_resample_proc, same_filter_proc, mm_raw_proc, mm_filtered_proc, ffmpeg_proc = start_sdr_pipeline()
+        line_queue, processes = start_sdr_pipeline()
+        pub("status", "running", retain=True, qos=1)
         try:
             while True:
-                source, line = line_queue.get()
+                try:
+                    source, line = line_queue.get(timeout=PIPELINE_POLL_SECONDS)
+                except queue.Empty:
+                    failed = [
+                        (proc.args[0], proc.returncode)
+                        for proc in processes
+                        if proc.poll() is not None
+                    ]
+                    if failed:
+                        raise RuntimeError(f"child process exited: {failed}")
+                    continue
+                if source == "__pipeline_exit__":
+                    raise RuntimeError(line)
                 log.info("multimon[%s]: %s", source, line)
                 if "ZCZC" in line:
                     handle_zczc(_normalize_multimon_line(line))
@@ -407,12 +553,16 @@ def main():
                     handle_eom()
         except Exception as exc:
             log.error("Pipeline error: %s — restarting in 5s", exc)
-            pub("status", "error", retain=True)
+            pub("status", "error", retain=True, qos=1)
         finally:
-            for proc in (ffmpeg_proc, mm_filtered_proc, mm_raw_proc, same_filter_proc, same_resample_proc, rtl_proc):
+            for proc in reversed(processes):
                 try:
+                    if proc.poll() is None:
+                        proc.terminate()
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
                     proc.kill()
-                    proc.wait()
+                    proc.wait(timeout=5)
                 except Exception:
                     pass
         log.info("Restarting pipeline in 5 seconds...")

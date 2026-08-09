@@ -17,7 +17,7 @@ I am not a professional developer. I am someone who learns by doing, breaks thin
 - **Automation examples** — notifications, audio playback, lights, alert panels, and alarm workflows built from the standard integration events
 - **Audio examples** — Sonos, Google Home, TTS, browser players, and other `media_player` targets
 - **Non-US adaptations** — Canadian Weatheradio uses similar SAME codes; other countries may have equivalents
-- **HACS polish** — icons, translations, diagnostics, repairs, and config flow improvements
+- **Home Assistant polish** — repairs, more diagnostics, and config flow improvements
 - **HAOS add-on** — direct SDR support for users who want the dongle plugged into the HAOS host
 
 ---
@@ -34,7 +34,6 @@ I am not a professional developer. I am someone who learns by doing, breaks thin
 
 - Python: PEP 8, clear comments, no magic numbers without explanation
 - YAML: 2-space indent, descriptive entity names
-- Keep `# ← EDIT` markers on every line a user must customize during setup
 - Prefer simple and readable over clever
 
 ---

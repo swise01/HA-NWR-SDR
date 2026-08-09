@@ -1,38 +1,28 @@
-# Audio Streaming
+# Audio streaming
 
-The v2 Pi parser hosts a live MP3 stream of the tuned NOAA Weather Radio channel.
+The Linux parser hosts a live MP3 stream of the tuned NOAA Weather Radio channel and publishes its URL on `nwr/audio/url`.
 
 Default URL:
 
 ```text
-http://<pi-ip>:8765/nwr.mp3
+http://<radio-host>:8765/nwr.mp3
 ```
 
-The parser publishes this URL to MQTT:
+Use `AUDIO_ADVERTISE_HOST` to override automatic LAN address discovery or `AUDIO_STREAM_URL` to publish a complete reverse-proxy URL.
 
-```text
-nwr/audio/url
-```
-
-Home Assistant exposes it as:
-
-```text
-sensor.nwr_audio_url
-```
-
-The bridge package does not automatically play audio. That is intentional: users have different speakers, volume policies, household needs, and emergency workflows.
+The built-in endpoint has no authentication and listens on all interfaces. Keep it on a trusted LAN, restrict the port with a firewall, or put it behind an authenticated proxy. Do not expose port 8765 directly to the Internet.
 
 Example user automation:
 
 ```yaml
-trigger:
-  - platform: event
+triggers:
+  - trigger: event
     event_type: nwr_same_alert_received
-condition:
+conditions:
   - condition: template
     value_template: "{{ trigger.event.data.severity | int == 1 }}"
-action:
-  - service: media_player.play_media
+actions:
+  - action: media_player.play_media
     target:
       entity_id: media_player.your_speaker
     data:
@@ -40,17 +30,4 @@ action:
       media_content_type: music
 ```
 
-## Firewall
-
-The Home Assistant host must be able to reach the Pi on the configured audio stream port, default `8765`.
-
-## Tuning
-
-The stream path uses a voice-focused filter chain in `pi/nwr_parser.py`.
-
-The SAME decode path is separate and runs two decoders:
-
-- raw resampled audio
-- filtered audio
-
-Keep both until logs show which one is more reliable for your local transmitter.
+Audio playback remains a user automation because volume, household, and emergency policies differ.

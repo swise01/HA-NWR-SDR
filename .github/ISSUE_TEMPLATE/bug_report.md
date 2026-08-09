@@ -11,7 +11,8 @@ A clear description of what went wrong.
 
 ## Environment
 - Home Assistant version:
-- Pi model:
+- Linux host / model:
+- Parser version:
 - RTL-SDR dongle model:
 - NWR frequency:
 - State / region:
@@ -21,7 +22,7 @@ What did you expect vs what actually occurred?
 
 ## Relevant logs
 ```
-# journalctl -u nwr_parser -n 50
+# journalctl -u nwr.service -n 50
 # HA Settings → System → Logs
 ```
 
