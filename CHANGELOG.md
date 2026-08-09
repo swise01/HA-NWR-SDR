@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.0 - 2026-08-09
+
+### Linux and Raspberry Pi hosts
+
+- Add a repeatable installer for Debian, Ubuntu, and Raspberry Pi OS on x86_64 and ARM.
+- Install native dependencies, an isolated Python environment, the unprivileged service account, systemd unit, and RTL-SDR driver policy.
+- Preserve `config.env` during updates and avoid starting fresh installations with example credentials.
+- Add `nwrctl` for dependency/configuration checks, status, logs, editing, and service lifecycle control.
+- Add a cloud-host audit that performs install, permission, decoder, upgrade-preservation, CLI, and uninstall checks on an ephemeral Ubuntu VM.
+
 ## 3.0.0 - 2026-08-09
 
 ### Home Assistant

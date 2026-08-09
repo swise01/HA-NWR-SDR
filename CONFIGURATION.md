@@ -1,5 +1,7 @@
 # Configuration guide
 
+The host installer writes the protected runtime configuration to `/opt/nwr/config.env`. Use `sudo nwrctl edit` to change it and `sudo nwrctl check` to validate dependencies, Python packages, the MQTT connection, and service state without displaying the MQTT password.
+
 ## Radio
 
 Set `SDR_FREQUENCY` to the local NOAA Weather Radio transmitter. The seven channels span `162.400M` through `162.550M` in 25 kHz increments.

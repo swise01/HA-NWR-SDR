@@ -1,6 +1,8 @@
-# v3 architecture
+# v4 architecture
 
 HA-NWR-SDR has two deliberately separate runtime layers.
+
+The host installer and `nwrctl` manage the Linux radio-publisher layer only. They do not write Home Assistant configuration or store Home Assistant credentials.
 
 ## Linux radio publisher
 
