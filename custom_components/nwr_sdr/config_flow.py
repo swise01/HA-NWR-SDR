@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-
-from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+
+from homeassistant import config_entries
 
 from .const import (
     CONF_TEST_EFFECTIVE_SEVERITY,
@@ -17,6 +17,15 @@ from .const import (
     DEFAULT_TOPIC_ROOT,
     DOMAIN,
 )
+from .payload import normalize_topic_root
+
+
+def _topic_root(value: str) -> str:
+    """Validate an MQTT topic root for the form schema."""
+    try:
+        return normalize_topic_root(value)
+    except ValueError as exc:
+        raise vol.Invalid(str(exc)) from exc
 
 
 def _schema(
@@ -26,7 +35,7 @@ def _schema(
 ) -> vol.Schema:
     return vol.Schema(
         {
-            vol.Optional(CONF_TOPIC_ROOT, default=topic_root): str,
+            vol.Optional(CONF_TOPIC_ROOT, default=topic_root): vol.All(str, _topic_root),
             vol.Optional(
                 CONF_TEST_EFFECTIVE_SEVERITY, default=test_effective_severity
             ): selector.NumberSelector(
@@ -42,10 +51,13 @@ def _schema(
 
 
 def _options_schema(
-    *, test_effective_severity: int = DEFAULT_TEST_EFFECTIVE_SEVERITY
+    *,
+    topic_root: str = DEFAULT_TOPIC_ROOT,
+    test_effective_severity: int = DEFAULT_TEST_EFFECTIVE_SEVERITY,
 ) -> vol.Schema:
     return vol.Schema(
         {
+            vol.Optional(CONF_TOPIC_ROOT, default=topic_root): vol.All(str, _topic_root),
             vol.Optional(
                 CONF_TEST_EFFECTIVE_SEVERITY, default=test_effective_severity
             ): selector.NumberSelector(
@@ -107,12 +119,17 @@ class NwrSdrOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(
                 title="",
                 data={
+                    CONF_TOPIC_ROOT: user_input[CONF_TOPIC_ROOT],
                     CONF_TEST_EFFECTIVE_SEVERITY: int(
                         user_input[CONF_TEST_EFFECTIVE_SEVERITY]
                     )
                 },
             )
 
+        topic_root = self._config_entry.options.get(
+            CONF_TOPIC_ROOT,
+            self._config_entry.data.get(CONF_TOPIC_ROOT, DEFAULT_TOPIC_ROOT),
+        )
         test_effective_severity = self._config_entry.options.get(
             CONF_TEST_EFFECTIVE_SEVERITY,
             self._config_entry.data.get(
@@ -122,6 +139,7 @@ class NwrSdrOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=_options_schema(
+                topic_root=str(topic_root),
                 test_effective_severity=int(test_effective_severity)
             ),
         )

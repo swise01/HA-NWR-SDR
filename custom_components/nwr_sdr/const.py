@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 DOMAIN = "nwr_sdr"
+MANUFACTURER = "Wise23"
+MODEL = "NOAA Weather Radio SDR"
 
 CONF_TOPIC_ROOT = "topic_root"
 CONF_TEST_EFFECTIVE_SEVERITY = "test_effective_severity"
@@ -28,6 +30,7 @@ ATTR_COUNTIES = "counties"
 ATTR_COUNTY_CODES = "county_codes"
 ATTR_ISSUE_UTC = "issue_utc"
 ATTR_EXPIRY_UTC = "issue_expiry_utc"
+ATTR_RECEIVED_UTC = "received_utc"
 ATTR_REMAINING_SECONDS = "true_remaining_secs"
 ATTR_RAW = "raw"
 
@@ -45,7 +48,10 @@ EVENT_NAMES = {
     "VOW": "Volcano Warning",
     "EQW": "Earthquake Warning",
     "LEW": "Law Enforcement Warning",
-    "LAW": "Local Area Emergency",
+    "LAE": "Local Area Emergency",
+    "BLU": "Blue Alert",
+    "CAE": "Child Abduction Emergency",
+    "TOE": "911 Telephone Outage Emergency",
     "CEM": "Civil Emergency Message",
     "SVR": "Severe Thunderstorm Warning",
     "BZW": "Blizzard Warning",
@@ -61,6 +67,10 @@ EVENT_NAMES = {
     "EHW": "Extreme Heat Warning",
     "ECW": "Extreme Cold Warning",
     "TYW": "Typhoon Warning",
+    "CFW": "Coastal Flood Warning",
+    "SQW": "Snow Squall Warning",
+    "SSW": "Storm Surge Warning",
+    "TRW": "Tropical Storm Warning",
     "TOA": "Tornado Watch",
     "SVA": "Severe Thunderstorm Watch",
     "FFA": "Flash Flood Watch",
@@ -76,11 +86,15 @@ EVENT_NAMES = {
     "ECA": "Extreme Cold Watch",
     "FRA": "Fire Watch",
     "DBA": "Dense Fog Watch",
+    "CFA": "Coastal Flood Watch",
+    "SSA": "Storm Surge Watch",
+    "TRA": "Tropical Storm Watch",
     "SPS": "Special Weather Statement",
     "FLS": "Flood Statement",
     "FFS": "Flash Flood Statement",
     "HLS": "Hurricane Local Statement",
     "MWS": "Marine Weather Statement",
+    "SVS": "Severe Weather Statement",
     "WIY": "Wind Advisory",
     "WCY": "Wind Chill Advisory",
     "FZW": "Freeze Warning",
@@ -117,7 +131,10 @@ TIER_BY_CODE = {
     "VOW": 1,
     "EQW": 1,
     "LEW": 1,
-    "LAW": 1,
+    "LAE": 1,
+    "BLU": 1,
+    "CAE": 1,
+    "TOE": 1,
     "CEM": 1,
     "SVR": 2,
     "BZW": 2,
@@ -133,6 +150,10 @@ TIER_BY_CODE = {
     "EHW": 2,
     "ECW": 2,
     "TYW": 2,
+    "CFW": 2,
+    "SQW": 2,
+    "SSW": 2,
+    "TRW": 2,
     "TOA": 3,
     "SVA": 3,
     "FFA": 3,
@@ -148,11 +169,15 @@ TIER_BY_CODE = {
     "ECA": 3,
     "FRA": 3,
     "DBA": 3,
+    "CFA": 3,
+    "SSA": 3,
+    "TRA": 3,
     "SPS": 4,
     "FLS": 4,
     "FFS": 4,
     "HLS": 4,
     "MWS": 4,
+    "SVS": 4,
     "WIY": 4,
     "WCY": 4,
     "FZW": 4,

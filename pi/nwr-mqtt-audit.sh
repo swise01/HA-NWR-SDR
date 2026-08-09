@@ -2,8 +2,8 @@
 set -eu
 
 CONFIG="${MQTT_AUDIT_CONFIG:-/opt/nwr/config.env}"
-LOG_DIR="${MQTT_AUDIT_LOG_DIR:-/home/pi/logs/mqtt}"
-AUDIT_LOG_FILE="${MQTT_AUDIT_LOG_FILE:-$LOG_DIR/pi-mqtt.log}"
+LOG_DIR="${MQTT_AUDIT_LOG_DIR:-/var/log/nwr/mqtt}"
+AUDIT_LOG_FILE="${MQTT_AUDIT_LOG_FILE:-$LOG_DIR/nwr-mqtt.log}"
 AUDIT_TOPICS="${MQTT_AUDIT_TOPICS:-nwr/#}"
 
 if [ -r "$CONFIG" ]; then

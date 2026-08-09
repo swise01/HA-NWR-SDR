@@ -1,211 +1,56 @@
-# Configuration Guide
+# Configuration guide
 
-This guide covers the v2 Raspberry Pi plus MQTT setup.
+## Radio
 
-The Home Assistant package is a bridge layer. It creates common entities and fires Home Assistant events, but it does not assume you have specific speakers, phones, relays, sirens, or dashboards.
+Set `SDR_FREQUENCY` to the local NOAA Weather Radio transmitter. The seven channels span `162.400M` through `162.550M` in 25 kHz increments.
 
-## Architecture
+Use a receiver serial in `SDR_DEVICE_INDEX` when multiple RTL-SDRs are attached. Start with moderate gain and adjust antenna placement before using maximum gain. Set `SDR_PPM` only after measuring the receiver's frequency error.
 
-```text
-RTL-SDR -> Raspberry Pi parser -> MQTT -> Home Assistant bridge package
-```
+## County filtering
 
-The future target is:
+`FIPS_FILTER` is a comma-separated list of six-digit SAME location codes:
 
 ```text
-Pi parser or HAOS add-on -> same normalized event schema -> HACS integration -> same HA entities/events
+0 + two-digit state FIPS + three-digit county FIPS
 ```
 
-## 1. Find Your NWR Station
+Leave it empty to publish all successfully decoded alerts.
 
-Use the NOAA station listing to find:
+## MQTT
 
-- transmitter callsign
-- frequency
-- counties served
+Configure `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS`, and `MQTT_TOPIC_ROOT`. Each parser must have a unique `MQTT_CLIENT_ID`; the default example is suitable for only one parser.
 
-Common NWR channels:
-
-| Channel | Frequency |
-|---|---:|
-| WX1 | 162.400 MHz |
-| WX2 | 162.425 MHz |
-| WX3 | 162.450 MHz |
-| WX4 | 162.475 MHz |
-| WX5 | 162.500 MHz |
-| WX6 | 162.525 MHz |
-| WX7 | 162.550 MHz |
-
-## 2. Find SAME/FIPS Codes
-
-The parser can filter SAME alerts by county code.
-
-Format:
-
-```text
-0 + 2 digit state FIPS + 3 digit county FIPS
-```
-
-Example:
-
-```text
-001073
-```
-
-Leave `FIPS_FILTER` empty if you want to publish every decoded SAME header.
-
-## 3. Find NWS Zone IDs
-
-The Home Assistant package can also poll the NWS Alerts API.
-
-Zone IDs look like:
-
-```text
-ALZ018
-ALZ030
-```
-
-Replace `YOUR_ZONE_1,YOUR_ZONE_2` in `homeassistant/packages/nwr.yaml`, or remove the `rest:` block if you only want radio/MQTT data.
-
-## 4. Install Pi Dependencies
-
-```bash
-sudo apt-get update
-sudo apt-get install -y rtl-sdr multimon-ng ffmpeg python3-venv python3-pip mosquitto-clients logrotate
-```
-
-Prevent the Linux DVB driver from claiming the RTL-SDR:
-
-```bash
-echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
-sudo usermod -aG plugdev "$USER"
-sudo reboot
-```
-
-## 5. Install the Parser
-
-```bash
-sudo mkdir -p /opt/nwr
-sudo chown "$USER:$USER" /opt/nwr
-
-python3 -m venv /opt/nwr_venv
-/opt/nwr_venv/bin/pip install -r pi/requirements.txt
-
-cp pi/nwr_parser.py pi/nwr-mqtt-audit.sh /opt/nwr/
-cp pi/config.env.example /opt/nwr/config.env
-chmod +x /opt/nwr/nwr_parser.py /opt/nwr/nwr-mqtt-audit.sh
-```
-
-Edit `/opt/nwr/config.env`:
+For a TLS broker:
 
 ```env
-MQTT_HOST=homeassistant.local
-MQTT_PORT=1883
-MQTT_USER=mqtt
-MQTT_PASS=change-me
-
-SDR_FREQUENCY=162.550M
-SDR_DEVICE_INDEX=0
-SDR_GAIN=49.6
-FIPS_FILTER=
+MQTT_TLS=true
+MQTT_CA_CERT=/etc/ssl/certs/ca-certificates.crt
 ```
 
-For RTL-SDR Blog V4 or serial-numbered dongles, `SDR_DEVICE_INDEX` may be a serial such as `SDRNWR01`.
+The parser publishes alert and status messages with QoS 1. SAME state is retained only until its expiry. EOM is an edge event and is never retained.
 
-## 6. Install Services
+## Audio URL
 
-```bash
-sudo cp pi/nwr_parser.service /etc/systemd/system/nwr.service
-sudo cp pi/nwr-mqtt-audit.service /etc/systemd/system/
-sudo cp pi/logrotate-nwr /etc/logrotate.d/nwr
+The parser normally discovers the LAN address used to reach the MQTT broker. Override it when required:
 
-sudo systemctl daemon-reload
-sudo systemctl enable --now nwr.service nwr-mqtt-audit.service
+```env
+AUDIO_ADVERTISE_HOST=nwr-radio.example.lan
 ```
 
-Check status:
+Or publish a complete reverse-proxy URL:
 
-```bash
-systemctl status nwr.service nwr-mqtt-audit.service
-journalctl -u nwr.service -f
+```env
+AUDIO_STREAM_URL=https://nwr-radio.example.com/nwr.mp3
 ```
 
-## 7. Install Home Assistant Package
+The built-in server listens on all interfaces and has no authentication. Restrict it with firewall policy or an authenticated reverse proxy before exposing it beyond the LAN.
 
-Copy:
+## Logging
 
-```text
-homeassistant/packages/nwr.yaml
-```
+Leave `LOG_FILE` empty to use `journalctl -u nwr.service`. To keep a separate file, create a directory writable by `nwr`, set the path in `config.env`, and adapt `pi/logrotate-nwr` if needed.
 
-to:
+## Home Assistant
 
-```text
-/config/packages/nwr.yaml
-```
+The integration's options allow both the MQTT topic root and effective test severity to be changed. Saving options automatically reloads the config entry.
 
-Enable packages in `configuration.yaml` if needed:
-
-```yaml
-homeassistant:
-  packages:
-    nwr: !include packages/nwr.yaml
-```
-
-Restart Home Assistant.
-
-## 8. Build User Automations
-
-The package fires these events:
-
-```text
-nwr_same_alert_received
-nwr_eom_received
-nwr_alert_expired
-```
-
-Example automation trigger:
-
-```yaml
-trigger:
-  - platform: event
-    event_type: nwr_same_alert_received
-condition:
-  - condition: template
-    value_template: "{{ trigger.event.data.severity | int <= 2 }}"
-action:
-  - service: notify.mobile_app_your_phone
-    data:
-      title: "NWR {{ trigger.event.data.event_name }}"
-      message: "{{ trigger.event.data.county_codes }}"
-```
-
-Users can choose their own phones, speakers, relays, lights, alarms, or dashboards without editing the parser.
-
-## 9. Debugging Weekly Tests
-
-The parser keeps durable logs because weekly tests are hard to chase live:
-
-```bash
-tail -f /home/$USER/logs/nwr/parser.log
-tail -f /home/$USER/logs/mqtt/pi-mqtt.log
-```
-
-Interpretation:
-
-- `multimon[raw]: ... ZCZC...` means the raw decoder caught the SAME header.
-- `multimon[filtered]: ... ZCZC...` means the filtered decoder caught the SAME header.
-- EOM only means the decoder caught the end marker but missed the header.
-- `nwr/alert/same` in the MQTT audit means Home Assistant should have received an alert event.
-
-## SDR Tuning Notes
-
-Do not assume maximum gain is best. Too much gain can overload the receiver.
-
-Recommended tuning process:
-
-1. Start with a known working NWR frequency.
-2. Confirm voice audio is clean.
-3. Try a gain sweep around 20, 30, 40, and 49.6.
-4. Compare raw vs filtered decoder logs during weekly tests.
-5. Adjust antenna placement before adding more DSP complexity.
+Use `nwr_same_alert_received` for new alerts. Retained state restores entities after Home Assistant restarts but deliberately does not fire that event again.

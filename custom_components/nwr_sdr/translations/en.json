@@ -3,13 +3,13 @@
     "step": {
       "user": {
         "title": "HA-NWR-SDR",
-        "description": "Connect to the normalized NWR MQTT event stream from either the Raspberry Pi parser or the future HAOS add-on.",
+        "description": "Connect to the normalized NWR MQTT event stream.",
         "data": {
           "topic_root": "MQTT topic root",
           "test_effective_severity": "Effective severity for SAME tests"
         },
         "data_description": {
-          "test_effective_severity": "Required Weekly/Monthly Tests remain labeled as tests, but this controls how strongly they propagate to automations. Set to 1 to exercise the full alert path during weekly tests."
+          "test_effective_severity": "Required Weekly/Monthly Tests remain labeled as tests, but this controls how strongly they propagate to automations."
         }
       }
     }

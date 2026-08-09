@@ -1,32 +1,30 @@
 # Changelog
 
-## 2.0.0 - Unreleased
+## 3.0.0 - 2026-08-09
 
-### Added
+### Home Assistant
 
-- HACS-compatible `nwr_sdr` custom integration.
-- Config flow for MQTT topic root and test effective severity.
-- Common Home Assistant entities for parser status, audio URL, alert state, event code/name, SAME severity, effective severity, county codes, expiry, and EOM time.
-- Standard Home Assistant events:
-  - `nwr_same_alert_received`
-  - `nwr_eom_received`
-  - `nwr_alert_expired`
-- Separate actual SAME severity from effective automation severity.
-- Slider option to let tests remain tier 5/Test while propagating as a stronger effective severity.
-- Hardened Raspberry Pi parser with raw and filtered SAME decoder paths.
-- Parser-side duplicate SAME/EOM suppression.
-- NWS-issued expiry calculation from SAME issue time plus valid duration.
-- Parser file logging and MQTT audit logging.
-- Logrotate config for parser and MQTT logs.
+- Prevent retained SAME/EOM messages and duplicate headers from replaying automation events.
+- Reject expired, malformed, and structurally invalid payloads.
+- Add the complete operational NWR-SAME code set and correct Local Area Emergency to `LAE`.
+- Treat unknown valid codes conservatively as warnings instead of advisories.
+- Reload automatically after topic-root or test-severity option changes.
+- Add timestamp entities, device grouping, translations, and redacted diagnostics.
+- Fix current Home Assistant dataclass compatibility with keyword-only entity descriptions.
 
-### Changed
+### Parser and service
 
-- v2 MQTT alert topic is `nwr/alert/same`.
-- v2 EOM topic is `nwr/alert/eom`.
-- Public Home Assistant YAML package is now an event bridge/example, not the primary integration path.
-- User-specific alert actions are intentionally left to user automations.
+- Detect failed SDR/decoder processes, capture useful stderr, and restart the whole pipeline cleanly.
+- Publish alerts and status with QoS 1; stop retaining EOM events; clear retained SAME state at expiry.
+- Add PPM correction, unique MQTT client IDs, optional TLS, and explicit audio advertisement settings.
+- Replace hardcoded Raspberry Pi paths and global process kills with an unprivileged `nwr` account and systemd control-group cleanup.
+- Add MQTT/dependency startup checks and service hardening.
 
-### Planned
+### Project
 
-- Separate Home Assistant OS add-on repository for direct SDR-on-HAOS installs.
-- Shared schema compatibility between the Pi parser and HAOS add-on.
+- Make the custom integration the only supported Home Assistant interface and remove the unreliable legacy YAML bridge.
+- Add automated tests, HACS validation, hassfest, compile checks, and shellcheck.
+
+## 2.0.0 - 2026-08-08
+
+- Initial HACS integration and split Linux parser/MQTT architecture.

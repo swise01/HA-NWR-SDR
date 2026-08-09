@@ -10,10 +10,11 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import NwrSdrRuntime
-from .const import DOMAIN
+from .const import DOMAIN, MANUFACTURER, MODEL
 
 
 async def async_setup_entry(
@@ -30,12 +31,18 @@ class NwrAlertActiveBinarySensor(BinarySensorEntity):
     """Active NWR alert binary sensor."""
 
     _attr_has_entity_name = True
-    _attr_name = "NWR Alert Active"
+    _attr_name = "Alert Active"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
 
     def __init__(self, runtime: NwrSdrRuntime) -> None:
         self._runtime = runtime
         self._attr_unique_id = f"{runtime.entry.entry_id}_alert_active"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, runtime.entry.entry_id)},
+            manufacturer=MANUFACTURER,
+            model=MODEL,
+            name="NOAA Weather Radio",
+        )
         self._remove_listener: Callable[[], None] | None = None
 
     async def async_added_to_hass(self) -> None:

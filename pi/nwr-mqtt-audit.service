@@ -5,8 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=nwr
+Group=nwr
+EnvironmentFile=/opt/nwr/config.env
 ExecStart=/opt/nwr/nwr-mqtt-audit.sh
 Restart=always
 RestartSec=10

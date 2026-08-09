@@ -3,20 +3,29 @@ Description=NOAA Weather Radio SAME decoder and MQTT publisher
 Documentation=https://github.com/swise01/HA-NWR-SDR
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=10
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=nwr
+Group=nwr
+SupplementaryGroups=plugdev
 EnvironmentFile=/opt/nwr/config.env
 Environment=NWR_CONFIG=/opt/nwr/config.env
-ExecStartPre=/bin/sleep 3
-ExecStartPre=-/usr/bin/pkill -9 -x rtl_fm
-ExecStartPre=-/usr/bin/pkill -9 -x multimon-ng
+ExecStartPre=/bin/sh -c 'until /usr/bin/nc -z -w 3 "$MQTT_HOST" "${MQTT_PORT:-1883}"; do sleep 10; done'
+ExecStartPre=/usr/bin/test -x /usr/bin/rtl_fm
+ExecStartPre=/usr/bin/test -x /usr/bin/ffmpeg
+ExecStartPre=/usr/bin/test -x /usr/bin/multimon-ng
+ExecStartPre=/usr/bin/test -r /opt/nwr/config.env
 ExecStart=/opt/nwr_venv/bin/python3 /opt/nwr/nwr_parser.py
 Restart=always
 RestartSec=10
 TimeoutStopSec=20
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=nwr

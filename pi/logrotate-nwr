@@ -1,4 +1,4 @@
-/home/pi/logs/nwr/*.log {
+/var/log/nwr/*.log {
     daily
     rotate 30
     missingok
@@ -6,10 +6,10 @@
     compress
     delaycompress
     copytruncate
-    su pi pi
+    su nwr nwr
 }
 
-/home/pi/logs/mqtt/*.log {
+/var/log/nwr/mqtt/*.log {
     daily
     rotate 10
     missingok
@@ -17,5 +17,5 @@
     compress
     delaycompress
     copytruncate
-    su pi pi
+    su nwr nwr
 }
